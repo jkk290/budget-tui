@@ -1,20 +1,36 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/jkk290/budget-tui/internal/database"
 	"github.com/joho/godotenv"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
+	dbURL := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Printf("Error connecting to postgres database: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &apiConfig{
+		db: database.New(db),
+	}
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/v1/hello", handlerHello)
+	mux.HandleFunc("POST /api/v1/users", cfg.createUser)
 
 	srv := &http.Server{
 		Handler: mux,
