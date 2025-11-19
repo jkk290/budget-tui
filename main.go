@@ -15,7 +15,19 @@ import (
 func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
+	if port == "" {
+		log.Fatal("PORT not set in .env")
+	}
+
 	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL not set in .env")
+	}
+
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		log.Fatal("TOKEN_SECRET not set in .env")
+	}
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -24,7 +36,8 @@ func main() {
 	defer db.Close()
 
 	cfg := &apiConfig{
-		db: database.New(db),
+		db:        database.New(db),
+		jwtSecret: tokenSecret,
 	}
 
 	mux := http.NewServeMux()

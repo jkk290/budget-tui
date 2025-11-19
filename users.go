@@ -62,3 +62,32 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, req *http.Request) {
 		},
 	})
 }
+
+// func (cfg *apiConfig) updateUser(w http.ResponseWriter, req *http.Request) {
+// 	type parameters struct {
+// 		Password string `json:"password"`
+// 		Username string `json:"username"`
+// 	}
+
+// 	type response struct {
+// 		User
+// 	}
+
+// 	decoder := json.NewDecoder(req.Body)
+// 	params := parameters{}
+// 	if err := decoder.Decode(&params); err != nil {
+// 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+// 		return
+// 	}
+
+// 	var hashedPw string
+// 	var newUsername string
+// 	if params.Password != "" {
+// 		var hashErr error
+// 		hashedPw, hashErr = auth.HashPassword(params.Password)
+// 		if hashErr != nil {
+// 			respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", hashErr)
+// 			return
+// 		}
+// 	}
+// }
