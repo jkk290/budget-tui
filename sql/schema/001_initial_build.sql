@@ -45,7 +45,7 @@ CREATE TABLE accounts (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     user_id UUID NOT NULL,
-    CONSTRAINT fk_user_id,
+    CONSTRAINT fk_user_id
     FOREIGN KEY (user_id)
     REFERENCES users(id)
     ON DELETE CASCADE
@@ -61,11 +61,11 @@ CREATE TABLE transactions (
     posted BOOLEAN NOT NULL DEFAULT (false),
     account_id UUID NOT NULL,
     category_id UUID NOT NULL,
-    CONSTRAINT fk_account_id,
+    CONSTRAINT fk_account_id
     FOREIGN KEY (account_id)
     REFERENCES accounts(id)
     ON DELETE CASCADE,
-    CONSTRAINT fk_category_id,
+    CONSTRAINT fk_category_id
     FOREIGN KEY (category_id)
     REFERENCES categories(id)
 );
