@@ -44,6 +44,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/hello", handlerHello)
 	mux.HandleFunc("POST /api/v1/users", cfg.createUser)
+	mux.HandleFunc("POST /api/v1/login", cfg.handlerLogin)
 
 	srv := &http.Server{
 		Handler: mux,
