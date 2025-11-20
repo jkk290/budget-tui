@@ -112,3 +112,70 @@ func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, accounts)
 }
+
+func (cfg *apiConfig) updateAccountBalance(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Balance float32 `json:"balance"`
+	}
+
+	type response struct {
+		Account
+	}
+
+	accountIDString := req.PathValue("accountID")
+	accountID, err := uuid.Parse(accountIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid account ID", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbAccount, err := cfg.db.GetAccountByID(req.Context(), accountID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Couldn't get account", err)
+		return
+	}
+	if dbAccount.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "You can't update this account's balance", err)
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	updatedAccount, err := cfg.db.UpdateAccountBalance(req.Context(), database.UpdateAccountBalanceParams{
+		ID:      dbAccount.ID,
+		Balance: params.Balance,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update the account balance", err)
+		return
+	}
+
+	account := Account{
+		ID:          updatedAccount.ID,
+		AccountName: updatedAccount.AccountName,
+		AccountType: updatedAccount.AccountType,
+		Balance:     updatedAccount.Balance,
+		CreatedAt:   updatedAccount.CreatedAt,
+		UpdatedAt:   updatedAccount.UpdatedAt,
+		UserID:      updatedAccount.UserID,
+	}
+
+	respondWithJSON(w, http.StatusOK, account)
+}
