@@ -76,3 +76,39 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 		},
 	})
 }
+
+func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbAccounts, err := cfg.db.GetAccountsByUserID(req.Context(), userID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve accounts", err)
+		return
+	}
+
+	accounts := []Account{}
+	for _, account := range dbAccounts {
+		accounts = append(accounts, Account{
+			ID:          account.ID,
+			AccountName: account.AccountName,
+			AccountType: account.AccountType,
+			Balance:     account.Balance,
+			CreatedAt:   account.CreatedAt,
+			UpdatedAt:   account.UpdatedAt,
+			UserID:      account.UserID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, accounts)
+}

@@ -10,3 +10,7 @@ VALUES (
     $7
 )
 RETURNING *;
+
+-- name: GetAccountsByUserID :many
+SELECT * FROM accounts
+WHERE user_id = $1;

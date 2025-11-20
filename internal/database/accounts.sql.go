@@ -58,3 +58,39 @@ func (q *Queries) AddAccount(ctx context.Context, arg AddAccountParams) (Account
 	)
 	return i, err
 }
+
+const getAccountsByUserID = `-- name: GetAccountsByUserID :many
+SELECT id, account_name, account_type, balance, created_at, updated_at, user_id FROM accounts
+WHERE user_id = $1
+`
+
+func (q *Queries) GetAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]Account, error) {
+	rows, err := q.db.QueryContext(ctx, getAccountsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountName,
+			&i.AccountType,
+			&i.Balance,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
