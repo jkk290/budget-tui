@@ -1,0 +1,78 @@
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jkk290/budget-tui/internal/auth"
+	"github.com/jkk290/budget-tui/internal/database"
+)
+
+type Account struct {
+	ID          uuid.UUID `json:"id"`
+	AccountName string    `json:"account_name"`
+	AccountType string    `json:"account_type"`
+	Balance     float32   `json:"balance"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		AccountName string  `json:"account_name"`
+		AccountType string  `json:"account_type"`
+		Balance     float32 `json:"balance"`
+	}
+
+	type response struct {
+		Account
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	account, err := cfg.db.AddAccount(req.Context(), database.AddAccountParams{
+		ID:          uuid.New(),
+		AccountName: params.AccountName,
+		AccountType: params.AccountType,
+		Balance:     params.Balance,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		UserID:      userID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't add account", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, response{
+		Account: Account{
+			ID:          account.ID,
+			AccountName: account.AccountName,
+			AccountType: account.AccountType,
+			Balance:     account.Balance,
+			CreatedAt:   account.CreatedAt,
+			UpdatedAt:   account.UpdatedAt,
+			UserID:      account.UserID,
+		},
+	})
+}
