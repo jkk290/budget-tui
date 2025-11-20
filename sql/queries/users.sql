@@ -12,12 +12,3 @@ RETURNING *;
 -- name: GetUserByUsername :one
 SELECT * FROM users
 WHERE username = $1;
-
--- name: UpdateUser :one
-UPDATE users 
-SET created_at = $2,
-updated_at = $3,
-username = $4,
-hashed_pw = $5
-WHERE id = $1
-RETURNING *;
