@@ -167,15 +167,15 @@ func (cfg *apiConfig) updateAccountBalance(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	account := Account{
-		ID:          updatedAccount.ID,
-		AccountName: updatedAccount.AccountName,
-		AccountType: updatedAccount.AccountType,
-		Balance:     updatedAccount.Balance,
-		CreatedAt:   updatedAccount.CreatedAt,
-		UpdatedAt:   updatedAccount.UpdatedAt,
-		UserID:      updatedAccount.UserID,
-	}
-
-	respondWithJSON(w, http.StatusOK, account)
+	respondWithJSON(w, http.StatusOK, response{
+		Account: Account{
+			ID:          updatedAccount.ID,
+			AccountName: updatedAccount.AccountName,
+			AccountType: updatedAccount.AccountType,
+			Balance:     updatedAccount.Balance,
+			CreatedAt:   updatedAccount.CreatedAt,
+			UpdatedAt:   updatedAccount.UpdatedAt,
+			UserID:      updatedAccount.UserID,
+		},
+	})
 }
