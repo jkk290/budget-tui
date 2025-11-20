@@ -113,9 +113,9 @@ func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusOK, accounts)
 }
 
-func (cfg *apiConfig) updateAccountBalance(w http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Balance float32 `json:"balance"`
+		AccountName string `json:"account_name"`
 	}
 
 	type response struct {
@@ -158,9 +158,9 @@ func (cfg *apiConfig) updateAccountBalance(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	updatedAccount, err := cfg.db.UpdateAccountBalance(req.Context(), database.UpdateAccountBalanceParams{
-		ID:      dbAccount.ID,
-		Balance: params.Balance,
+	updatedAccount, err := cfg.db.UpdateAccountInfo(req.Context(), database.UpdateAccountInfoParams{
+		ID:          dbAccount.ID,
+		AccountName: params.AccountName,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update the account balance", err)

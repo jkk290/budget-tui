@@ -49,7 +49,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/accounts", cfg.getAccounts)
 	mux.HandleFunc("POST /api/v1/accounts", cfg.addAccount)
-	mux.HandleFunc("PUT /api/v1/accounts/{accountID}", cfg.updateAccountBalance)
+	mux.HandleFunc("PUT /api/v1/accounts/{accountID}", cfg.updateAccountInfo)
 
 	srv := &http.Server{
 		Handler: mux,
