@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -147,7 +148,7 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 		return
 	}
 	if dbAccount.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "You can't update this account's balance", err)
+		respondWithError(w, http.StatusForbidden, "You can't update this account's info", errors.New("Unauthorized"))
 		return
 	}
 
@@ -178,4 +179,42 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 			UserID:      updatedAccount.UserID,
 		},
 	})
+}
+
+func (cfg *apiConfig) deleteAccount(w http.ResponseWriter, req *http.Request) {
+	accountIDString := req.PathValue("accountID")
+	accountID, err := uuid.Parse(accountIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid account ID", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbAccount, err := cfg.db.GetAccountByID(req.Context(), accountID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Couldn't get account", err)
+		return
+	}
+	if dbAccount.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "You can't delete this account", errors.New("Unauthorized"))
+		return
+	}
+
+	if err := cfg.db.DeleteAccount(req.Context(), dbAccount.ID); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't delete account", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
