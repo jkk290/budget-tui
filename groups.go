@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -100,4 +101,108 @@ func (cfg *apiConfig) getGroups(w http.ResponseWriter, req *http.Request) {
 	}
 	respondWithJSON(w, http.StatusOK, groups)
 
+}
+
+func (cfg *apiConfig) updateGroup(w http.ResponseWriter, req *http.Request) {
+
+	type parameters struct {
+		GroupName string `json:"group_name"`
+	}
+
+	type response struct {
+		Group
+	}
+
+	groupIDString := req.PathValue("groupID")
+	groupID, err := uuid.Parse(groupIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid group ID", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbGroup, err := cfg.db.GetGroupByID(req.Context(), groupID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Couldn't get group", err)
+		return
+	}
+	if dbGroup.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "You can't update this group", errors.New("Unauthorized"))
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	updatedGroup, err := cfg.db.UpdateGroup(req.Context(), database.UpdateGroupParams{
+		ID:        dbGroup.ID,
+		GroupName: params.GroupName,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update group", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		Group: Group{
+			ID:        updatedGroup.ID,
+			GroupName: updatedGroup.GroupName,
+			CreatedAt: updatedGroup.CreatedAt,
+			UpdatedAt: dbGroup.UpdatedAt,
+			UserID:    dbGroup.UserID,
+		},
+	})
+}
+
+func (cfg *apiConfig) deleteGroup(w http.ResponseWriter, req *http.Request) {
+	groupIDString := req.PathValue("groupID")
+	groupID, err := uuid.Parse(groupIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid group ID", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbGroup, err := cfg.db.GetGroupByID(req.Context(), groupID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Couldn't get group", err)
+		return
+	}
+	if dbGroup.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "You can't delete this group", errors.New("Unauthorized"))
+		return
+	}
+
+	if err := cfg.db.DeleteGroup(req.Context(), dbGroup.ID); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't delete group", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

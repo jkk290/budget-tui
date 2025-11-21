@@ -54,6 +54,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/groups", cfg.getGroups)
 	mux.HandleFunc("POST /api/v1/groups", cfg.createGroup)
+	mux.HandleFunc("PUT /api/v1/groups/{groupID}", cfg.updateGroup)
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}", cfg.deleteGroup)
 
 	srv := &http.Server{
 		Handler: mux,
