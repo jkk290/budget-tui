@@ -21,18 +21,18 @@ type Account struct {
 }
 
 type Category struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Budget    float32
-	UserID    uuid.UUID
-	GroupID   uuid.NullUUID
+	ID           uuid.UUID
+	CategoryName string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Budget       float32
+	UserID       uuid.UUID
+	GroupID      uuid.NullUUID
 }
 
 type Group struct {
 	ID        uuid.UUID
-	Name      string
+	GroupName string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	UserID    uuid.UUID
