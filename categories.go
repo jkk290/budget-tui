@@ -110,7 +110,7 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusOK, categories)
 }
 
-func (cfg *apiConfig) updateCategories(w http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		CategoryName string    `json:"category_name"`
 		Budget       float32   `json:"budget"`
@@ -186,8 +186,40 @@ func (cfg *apiConfig) updateCategories(w http.ResponseWriter, req *http.Request)
 			CreatedAt:    updatedCategory.CreatedAt,
 			UpdatedAt:    updatedCategory.UpdatedAt,
 			Budget:       updatedCategory.Budget,
+			UserID:       updatedCategory.UserID,
 			GroupID:      updatedCategory.GroupID.UUID,
 		},
 	})
 
+}
+
+func (cfg *apiConfig) deleteCategory(w http.ResponseWriter, req *http.Request) {
+	categoryIDString := req.PathValue("categoryID")
+	categoryID, err := uuid.Parse(categoryIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid category ID", err)
+		return
+	}
+
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbCategory, err := cfg.db.GetCategoryByID(req.Context(), categoryID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get category", err)
+		return
+	}
+	if dbCategory.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Can't delete category", errors.New("Unauthorized"))
+		return
+	}
+
+	if err := cfg.db.DeleteCategory(req.Context(), dbCategory.ID); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't delete category", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

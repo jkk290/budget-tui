@@ -59,6 +59,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/categories", cfg.getCategories)
 	mux.HandleFunc("POST /api/v1/categories", cfg.createCategory)
+	mux.HandleFunc("PUT /api/v1/categories/{categoryID}", cfg.updateCategory)
+	mux.HandleFunc("DELETE /api/v1/categories/{categoryID}", cfg.deleteCategory)
 
 	srv := &http.Server{
 		Handler: mux,
