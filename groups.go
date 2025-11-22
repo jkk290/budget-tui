@@ -71,13 +71,7 @@ func (cfg *apiConfig) createGroup(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) getGroups(w http.ResponseWriter, req *http.Request) {
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
@@ -120,13 +114,7 @@ func (cfg *apiConfig) updateGroup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
@@ -177,13 +165,7 @@ func (cfg *apiConfig) deleteGroup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return

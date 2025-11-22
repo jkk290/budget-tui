@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jkk290/budget-tui/internal/auth"
 	"github.com/jkk290/budget-tui/internal/database"
 )
 
@@ -32,13 +31,7 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 		Account
 	}
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
@@ -80,13 +73,7 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
@@ -130,13 +117,7 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
@@ -189,13 +170,7 @@ func (cfg *apiConfig) deleteAccount(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
