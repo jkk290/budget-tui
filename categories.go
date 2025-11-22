@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -23,7 +24,7 @@ func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		CategoryName string    `json:"category_name"`
 		Budget       float32   `json:"budget"`
-		GroupID      uuid.UUID `json:"groupID"`
+		GroupID      uuid.UUID `json:"group_id"`
 	}
 
 	type response struct {
@@ -107,4 +108,86 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, categories)
+}
+
+func (cfg *apiConfig) updateCategories(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		CategoryName string    `json:"category_name"`
+		Budget       float32   `json:"budget"`
+		GroupID      uuid.UUID `json:"group_id"`
+	}
+
+	type response struct {
+		Category
+	}
+
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	categoryIDString := req.PathValue("categoryID")
+	categoryID, err := uuid.Parse(categoryIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid category ID", err)
+		return
+	}
+
+	dbCategory, err := cfg.db.GetCategoryByID(req.Context(), categoryID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get category", err)
+		return
+	}
+	if dbCategory.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Can't update category", errors.New("Unauthorized"))
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	updatedName := dbCategory.CategoryName
+	updatedBudget := dbCategory.Budget
+	updatedGroup := dbCategory.GroupID
+
+	if params.CategoryName != updatedName {
+		updatedName = params.CategoryName
+	}
+
+	if params.Budget != updatedBudget {
+		updatedBudget = params.Budget
+	}
+
+	if params.GroupID != updatedGroup.UUID {
+		updatedGroup.UUID = params.GroupID
+		updatedGroup.Valid = true
+	}
+
+	updatedCategory, err := cfg.db.UpdateCategory(req.Context(), database.UpdateCategoryParams{
+		ID:           dbCategory.ID,
+		CategoryName: updatedName,
+		Budget:       updatedBudget,
+		GroupID:      updatedGroup,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update category", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		Category: Category{
+			ID:           updatedCategory.ID,
+			CategoryName: updatedCategory.CategoryName,
+			CreatedAt:    updatedCategory.CreatedAt,
+			UpdatedAt:    updatedCategory.UpdatedAt,
+			Budget:       updatedCategory.Budget,
+			GroupID:      updatedCategory.GroupID.UUID,
+		},
+	})
+
 }

@@ -129,6 +129,7 @@ const updateCategory = `-- name: UpdateCategory :one
 UPDATE categories
 SET category_name = $2,
 budget = $3,
+group_id = $4,
 updated_at = NOW()
 WHERE id = $1
 RETURNING id, category_name, created_at, updated_at, budget, user_id, group_id
@@ -138,10 +139,16 @@ type UpdateCategoryParams struct {
 	ID           uuid.UUID
 	CategoryName string
 	Budget       float32
+	GroupID      uuid.NullUUID
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
-	row := q.db.QueryRowContext(ctx, updateCategory, arg.ID, arg.CategoryName, arg.Budget)
+	row := q.db.QueryRowContext(ctx, updateCategory,
+		arg.ID,
+		arg.CategoryName,
+		arg.Budget,
+		arg.GroupID,
+	)
 	var i Category
 	err := row.Scan(
 		&i.ID,

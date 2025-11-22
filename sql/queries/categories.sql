@@ -23,6 +23,7 @@ WHERE id = $1;
 UPDATE categories
 SET category_name = $2,
 budget = $3,
+group_id = $4,
 updated_at = NOW()
 WHERE id = $1
 RETURNING *;
