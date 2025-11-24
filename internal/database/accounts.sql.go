@@ -13,24 +13,22 @@ import (
 )
 
 const addAccount = `-- name: AddAccount :one
-INSERT INTO accounts (id, account_name, account_type, balance, created_at, updated_at, user_id)
+INSERT INTO accounts (id, account_name, account_type, created_at, updated_at, user_id)
 VALUES (
     $1,
     $2,
     $3,
     $4,
     $5,
-    $6,
-    $7
+    $6
 )
-RETURNING id, account_name, account_type, balance, created_at, updated_at, user_id
+RETURNING id, account_name, account_type, created_at, updated_at, user_id
 `
 
 type AddAccountParams struct {
 	ID          uuid.UUID
 	AccountName string
 	AccountType string
-	Balance     float32
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	UserID      uuid.UUID
@@ -41,7 +39,6 @@ func (q *Queries) AddAccount(ctx context.Context, arg AddAccountParams) (Account
 		arg.ID,
 		arg.AccountName,
 		arg.AccountType,
-		arg.Balance,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.UserID,
@@ -51,7 +48,6 @@ func (q *Queries) AddAccount(ctx context.Context, arg AddAccountParams) (Account
 		&i.ID,
 		&i.AccountName,
 		&i.AccountType,
-		&i.Balance,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,
@@ -70,7 +66,7 @@ func (q *Queries) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, account_name, account_type, balance, created_at, updated_at, user_id FROM accounts
+SELECT id, account_name, account_type, created_at, updated_at, user_id FROM accounts
 WHERE id = $1
 `
 
@@ -81,7 +77,6 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 		&i.ID,
 		&i.AccountName,
 		&i.AccountType,
-		&i.Balance,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,
@@ -90,7 +85,7 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 }
 
 const getAccountsByUserID = `-- name: GetAccountsByUserID :many
-SELECT id, account_name, account_type, balance, created_at, updated_at, user_id FROM accounts
+SELECT id, account_name, account_type, created_at, updated_at, user_id FROM accounts
 WHERE user_id = $1
 `
 
@@ -107,7 +102,6 @@ func (q *Queries) GetAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]
 			&i.ID,
 			&i.AccountName,
 			&i.AccountType,
-			&i.Balance,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.UserID,
@@ -125,40 +119,12 @@ func (q *Queries) GetAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]
 	return items, nil
 }
 
-const updateAccountBalance = `-- name: UpdateAccountBalance :one
-UPDATE accounts
-SET balance = $2,
-updated_at = NOW()
-WHERE id = $1
-RETURNING id, account_name, account_type, balance, created_at, updated_at, user_id
-`
-
-type UpdateAccountBalanceParams struct {
-	ID      uuid.UUID
-	Balance float32
-}
-
-func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error) {
-	row := q.db.QueryRowContext(ctx, updateAccountBalance, arg.ID, arg.Balance)
-	var i Account
-	err := row.Scan(
-		&i.ID,
-		&i.AccountName,
-		&i.AccountType,
-		&i.Balance,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.UserID,
-	)
-	return i, err
-}
-
 const updateAccountInfo = `-- name: UpdateAccountInfo :one
 UPDATE accounts
 SET account_name = $2,
 updated_at = NOW()
 where id = $1
-RETURNING id, account_name, account_type, balance, created_at, updated_at, user_id
+RETURNING id, account_name, account_type, created_at, updated_at, user_id
 `
 
 type UpdateAccountInfoParams struct {
@@ -173,7 +139,6 @@ func (q *Queries) UpdateAccountInfo(ctx context.Context, arg UpdateAccountInfoPa
 		&i.ID,
 		&i.AccountName,
 		&i.AccountType,
-		&i.Balance,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UserID,

@@ -14,7 +14,6 @@ type Account struct {
 	ID          uuid.UUID
 	AccountName string
 	AccountType string
-	Balance     float32
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	UserID      uuid.UUID

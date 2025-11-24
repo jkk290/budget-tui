@@ -14,7 +14,6 @@ type Account struct {
 	ID          uuid.UUID `json:"id"`
 	AccountName string    `json:"account_name"`
 	AccountType string    `json:"account_type"`
-	Balance     float32   `json:"balance"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	UserID      uuid.UUID `json:"user_id"`
@@ -22,9 +21,8 @@ type Account struct {
 
 func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		AccountName string  `json:"account_name"`
-		AccountType string  `json:"account_type"`
-		Balance     float32 `json:"balance"`
+		AccountName string `json:"account_name"`
+		AccountType string `json:"account_type"`
 	}
 
 	type response struct {
@@ -48,7 +46,6 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 		ID:          uuid.New(),
 		AccountName: params.AccountName,
 		AccountType: params.AccountType,
-		Balance:     params.Balance,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 		UserID:      userID,
@@ -63,7 +60,6 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 			ID:          account.ID,
 			AccountName: account.AccountName,
 			AccountType: account.AccountType,
-			Balance:     account.Balance,
 			CreatedAt:   account.CreatedAt,
 			UpdatedAt:   account.UpdatedAt,
 			UserID:      account.UserID,
@@ -91,7 +87,6 @@ func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 			ID:          account.ID,
 			AccountName: account.AccountName,
 			AccountType: account.AccountType,
-			Balance:     account.Balance,
 			CreatedAt:   account.CreatedAt,
 			UpdatedAt:   account.UpdatedAt,
 			UserID:      account.UserID,
@@ -154,7 +149,6 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 			ID:          updatedAccount.ID,
 			AccountName: updatedAccount.AccountName,
 			AccountType: updatedAccount.AccountType,
-			Balance:     updatedAccount.Balance,
 			CreatedAt:   updatedAccount.CreatedAt,
 			UpdatedAt:   updatedAccount.UpdatedAt,
 			UserID:      updatedAccount.UserID,
