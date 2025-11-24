@@ -30,7 +30,7 @@ RETURNING id, amount, tx_description, tx_date, created_at, updated_at, posted, a
 
 type AddTransactionParams struct {
 	ID            uuid.UUID
-	Amount        float32
+	Amount        string
 	TxDescription string
 	TxDate        time.Time
 	CreatedAt     time.Time
@@ -190,7 +190,7 @@ RETURNING id, amount, tx_description, tx_date, created_at, updated_at, posted, a
 
 type UpdateTransactionParams struct {
 	ID            uuid.UUID
-	Amount        float32
+	Amount        string
 	TxDescription string
 	TxDate        time.Time
 	Posted        bool

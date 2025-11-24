@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,7 +12,7 @@ import (
 
 type Transaction struct {
 	ID            uuid.UUID `json:"id"`
-	Amount        float32   `json:"amount"`
+	Amount        float64   `json:"amount"`
 	TxDescription string    `json:"tx_description"`
 	TxDate        time.Time `json:"tx_date"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -23,7 +24,7 @@ type Transaction struct {
 
 func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Amount        float32   `json:"amount"`
+		Amount        float64   `json:"amount"`
 		TxDescription string    `json:"tx_description"`
 		TxDate        time.Time `json:"tx_date"`
 		Posted        bool      `json:"posted"`
@@ -58,7 +59,7 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 
 	dbTransaction, err := cfg.db.AddTransaction(req.Context(), database.AddTransactionParams{
 		ID:            uuid.New(),
-		Amount:        params.Amount,
+		Amount:        strconv.FormatFloat(params.Amount, 'f', 2, 64),
 		TxDescription: params.TxDescription,
 		TxDate:        params.TxDate,
 		CreatedAt:     time.Now(),
@@ -72,10 +73,16 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	dbAmountFloat, err := strconv.ParseFloat(dbTransaction.Amount, 64)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
+		return
+	}
+
 	respondWithJSON(w, http.StatusCreated, response{
 		Transaction: Transaction{
 			ID:            dbTransaction.ID,
-			Amount:        dbTransaction.Amount,
+			Amount:        dbAmountFloat,
 			TxDescription: dbTransaction.TxDescription,
 			TxDate:        dbTransaction.TxDate,
 			CreatedAt:     dbTransaction.CreatedAt,

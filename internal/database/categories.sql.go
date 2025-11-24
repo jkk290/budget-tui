@@ -31,7 +31,7 @@ type CreateCategoryParams struct {
 	CategoryName string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	Budget       float32
+	Budget       string
 	UserID       uuid.UUID
 	GroupID      uuid.NullUUID
 }
@@ -138,7 +138,7 @@ RETURNING id, category_name, created_at, updated_at, budget, user_id, group_id
 type UpdateCategoryParams struct {
 	ID           uuid.UUID
 	CategoryName string
-	Budget       float32
+	Budget       string
 	GroupID      uuid.NullUUID
 }
 

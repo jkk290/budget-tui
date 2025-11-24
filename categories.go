@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +16,7 @@ type Category struct {
 	CategoryName string    `json:"category_name"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
-	Budget       float32   `json:"budget"`
+	Budget       float64   `json:"budget"`
 	UserID       uuid.UUID `json:"user_id"`
 	GroupID      uuid.UUID `json:"group_id"`
 }
@@ -23,7 +24,7 @@ type Category struct {
 func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		CategoryName string    `json:"category_name"`
-		Budget       float32   `json:"budget"`
+		Budget       float64   `json:"budget"`
 		GroupID      uuid.UUID `json:"group_id"`
 	}
 
@@ -58,12 +59,18 @@ func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 		CategoryName: params.CategoryName,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
-		Budget:       params.Budget,
+		Budget:       strconv.FormatFloat(params.Budget, 'f', 2, 64),
 		UserID:       userID,
 		GroupID:      categoryGroup,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create group", err)
+		return
+	}
+
+	dbBudgetFloat, err := strconv.ParseFloat(dbCategory.Budget, 64)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse budget", err)
 		return
 	}
 
@@ -73,7 +80,7 @@ func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 			CategoryName: dbCategory.CategoryName,
 			CreatedAt:    dbCategory.CreatedAt,
 			UpdatedAt:    dbCategory.UpdatedAt,
-			Budget:       dbCategory.Budget,
+			Budget:       dbBudgetFloat,
 			UserID:       dbCategory.UserID,
 			GroupID:      dbCategory.GroupID.UUID,
 		},
@@ -96,12 +103,18 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 
 	categories := []Category{}
 	for _, category := range dbCategories {
+		budgetFloat, err := strconv.ParseFloat(category.Budget, 64)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Couldn't parse budget", err)
+			return
+		}
+
 		categories = append(categories, Category{
 			ID:           category.ID,
 			CategoryName: category.CategoryName,
 			CreatedAt:    category.CreatedAt,
 			UpdatedAt:    category.UpdatedAt,
-			Budget:       category.Budget,
+			Budget:       budgetFloat,
 			UserID:       category.UserID,
 			GroupID:      category.GroupID.UUID,
 		})
@@ -113,7 +126,7 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		CategoryName string    `json:"category_name"`
-		Budget       float32   `json:"budget"`
+		Budget       string    `json:"budget"`
 		GroupID      uuid.UUID `json:"group_id"`
 	}
 
@@ -179,13 +192,19 @@ func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	updatedBudgetFloat, err := strconv.ParseFloat(dbCategory.Budget, 64)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse budget", err)
+		return
+	}
+
 	respondWithJSON(w, http.StatusOK, response{
 		Category: Category{
 			ID:           updatedCategory.ID,
 			CategoryName: updatedCategory.CategoryName,
 			CreatedAt:    updatedCategory.CreatedAt,
 			UpdatedAt:    updatedCategory.UpdatedAt,
-			Budget:       updatedCategory.Budget,
+			Budget:       updatedBudgetFloat,
 			UserID:       updatedCategory.UserID,
 			GroupID:      updatedCategory.GroupID.UUID,
 		},

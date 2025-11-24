@@ -24,7 +24,7 @@ type Category struct {
 	CategoryName string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	Budget       float32
+	Budget       string
 	UserID       uuid.UUID
 	GroupID      uuid.NullUUID
 }
@@ -39,7 +39,7 @@ type Group struct {
 
 type Transaction struct {
 	ID            uuid.UUID
-	Amount        float32
+	Amount        string
 	TxDescription string
 	TxDate        time.Time
 	CreatedAt     time.Time
