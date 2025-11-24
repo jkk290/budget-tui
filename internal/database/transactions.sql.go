@@ -37,7 +37,7 @@ type AddTransactionParams struct {
 	UpdatedAt     time.Time
 	Posted        bool
 	AccountID     uuid.UUID
-	CategoryID    uuid.UUID
+	CategoryID    uuid.NullUUID
 }
 
 func (q *Queries) AddTransaction(ctx context.Context, arg AddTransactionParams) (Transaction, error) {
@@ -142,7 +142,7 @@ SELECT id, amount, tx_description, tx_date, created_at, updated_at, posted, acco
 WHERE category_id = $1
 `
 
-func (q *Queries) GetTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) ([]Transaction, error) {
+func (q *Queries) GetTransactionsByCategory(ctx context.Context, categoryID uuid.NullUUID) ([]Transaction, error) {
 	rows, err := q.db.QueryContext(ctx, getTransactionsByCategory, categoryID)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ type UpdateTransactionParams struct {
 	TxDate        time.Time
 	Posted        bool
 	AccountID     uuid.UUID
-	CategoryID    uuid.UUID
+	CategoryID    uuid.NullUUID
 }
 
 func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error) {

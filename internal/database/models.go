@@ -46,7 +46,7 @@ type Transaction struct {
 	UpdatedAt     time.Time
 	Posted        bool
 	AccountID     uuid.UUID
-	CategoryID    uuid.UUID
+	CategoryID    uuid.NullUUID
 }
 
 type User struct {
