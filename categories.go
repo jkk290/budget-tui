@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -105,8 +106,8 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 	for _, category := range dbCategories {
 		budgetFloat, err := strconv.ParseFloat(category.Budget, 64)
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, "Couldn't parse budget", err)
-			return
+			log.Printf("Error parsing category budget: %v", category.ID)
+			continue
 		}
 
 		categories = append(categories, Category{

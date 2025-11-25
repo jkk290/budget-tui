@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -212,4 +213,57 @@ func (cfg *apiConfig) deleteTransaction(w http.ResponseWriter, req *http.Request
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *apiConfig) getAccountTransactions(w http.ResponseWriter, req *http.Request) {
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	accountIDString := req.PathValue("accountID")
+	accountID, err := uuid.Parse(accountIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid account ID", err)
+		return
+	}
+
+	dbAccount, err := cfg.db.GetAccountByID(req.Context(), accountID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get account", err)
+		return
+	}
+	if dbAccount.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Can't view account transactions", errors.New("Unauthorized"))
+		return
+	}
+
+	dbTransactions, err := cfg.db.GetTransactionsByAccount(req.Context(), dbAccount.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get transactions", err)
+		return
+	}
+
+	transactions := []Transaction{}
+	for _, transaction := range dbTransactions {
+		amountFloat, err := strconv.ParseFloat(transaction.Amount, 64)
+		if err != nil {
+			log.Printf("Error parsing transaction amount: %v", transaction.ID)
+			continue
+		}
+		transactions = append(transactions, Transaction{
+			ID:            transaction.ID,
+			Amount:        amountFloat,
+			TxDescription: transaction.TxDescription,
+			TxDate:        transaction.TxDate,
+			CreatedAt:     transaction.CreatedAt,
+			UpdatedAt:     transaction.UpdatedAt,
+			Posted:        transaction.Posted,
+			AccountID:     transaction.AccountID,
+			CategoryID:    transaction.CategoryID.UUID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, transactions)
 }

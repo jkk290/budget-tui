@@ -51,6 +51,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/accounts", cfg.addAccount)
 	mux.HandleFunc("PUT /api/v1/accounts/{accountID}", cfg.updateAccountInfo)
 	mux.HandleFunc("DELETE /api/v1/accounts/{accountID}", cfg.deleteAccount)
+	mux.HandleFunc("GET /api/v1/accounts/{accountID}/transactions", cfg.getAccountTransactions)
 
 	mux.HandleFunc("GET /api/v1/groups", cfg.getGroups)
 	mux.HandleFunc("POST /api/v1/groups", cfg.createGroup)
