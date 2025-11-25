@@ -25,3 +25,17 @@ func (q *Queries) GetAccountBalance(ctx context.Context, id uuid.UUID) (int64, e
 	err := row.Scan(&account_balance)
 	return account_balance, err
 }
+
+const getTransactionUserID = `-- name: GetTransactionUserID :one
+SELECT accounts.user_id AS user_id FROM transactions
+INNER JOIN accounts
+ON accounts.id = transactions.account_id
+WHERE transactions.id = $1
+`
+
+func (q *Queries) GetTransactionUserID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getTransactionUserID, id)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}

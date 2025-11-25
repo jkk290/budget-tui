@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -92,4 +93,123 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 			CategoryID:    dbTransaction.CategoryID.UUID,
 		},
 	})
+}
+
+func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Amount        float64   `json:"amount"`
+		TxDescription string    `json:"tx_description"`
+		TxDate        time.Time `json:"tx_date"`
+		Posted        bool      `json:"posted"`
+		AccountID     uuid.UUID `json:"account_id"`
+		CategoryID    uuid.UUID `json:"category_id"`
+	}
+
+	type response struct {
+		Transaction
+	}
+
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	transactionIDString := req.PathValue("transactionID")
+	transactionID, err := uuid.Parse(transactionIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID", err)
+		return
+	}
+
+	dbTransactionUserID, err := cfg.db.GetTransactionUserID(req.Context(), transactionID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get transaction", err)
+		return
+	}
+	if dbTransactionUserID != userID {
+		respondWithError(w, http.StatusUnauthorized, "Can't update transaction", errors.New("Unauthorized"))
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	updatedCatergoryID := uuid.NullUUID{
+		UUID:  uuid.Nil,
+		Valid: false,
+	}
+	if params.CategoryID != uuid.Nil {
+		updatedCatergoryID.UUID = params.CategoryID
+		updatedCatergoryID.Valid = true
+	}
+
+	updatedTransaction, err := cfg.db.UpdateTransaction(req.Context(), database.UpdateTransactionParams{
+		ID:            transactionID,
+		Amount:        strconv.FormatFloat(params.Amount, 'f', 2, 64),
+		TxDescription: params.TxDescription,
+		TxDate:        params.TxDate,
+		Posted:        params.Posted,
+		AccountID:     params.AccountID,
+		CategoryID:    updatedCatergoryID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update transaction", err)
+		return
+	}
+
+	updatedAmountFloat, err := strconv.ParseFloat(updatedTransaction.Amount, 64)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		Transaction: Transaction{
+			ID:            updatedTransaction.ID,
+			Amount:        updatedAmountFloat,
+			TxDescription: updatedTransaction.TxDescription,
+			TxDate:        updatedTransaction.TxDate,
+			Posted:        updatedTransaction.Posted,
+			CreatedAt:     updatedTransaction.CreatedAt,
+			UpdatedAt:     updatedTransaction.UpdatedAt,
+			AccountID:     updatedTransaction.AccountID,
+			CategoryID:    updatedTransaction.CategoryID.UUID,
+		},
+	})
+}
+
+func (cfg *apiConfig) deleteTransaction(w http.ResponseWriter, req *http.Request) {
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	transactionIDString := req.PathValue("transactionID")
+	transactionID, err := uuid.Parse(transactionIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID", err)
+		return
+	}
+
+	dbTransactionUserID, err := cfg.db.GetTransactionUserID(req.Context(), transactionID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get transaction", err)
+		return
+	}
+	if dbTransactionUserID != userID {
+		respondWithError(w, http.StatusUnauthorized, "Can't delete transaction", errors.New("Unauthorized"))
+		return
+	}
+
+	if err := cfg.db.DeleteTransaction(req.Context(), transactionID); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't delete transaction", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
