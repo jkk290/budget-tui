@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,8 +22,9 @@ type Account struct {
 
 func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		AccountName string `json:"account_name"`
-		AccountType string `json:"account_type"`
+		AccountName    string  `json:"account_name"`
+		AccountType    string  `json:"account_type"`
+		InitialBalance float64 `json:"initial_balance"`
 	}
 
 	type response struct {
@@ -52,6 +54,20 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't add account", err)
+		return
+	}
+	_, txErr := cfg.db.AddTransaction(req.Context(), database.AddTransactionParams{
+		ID:            uuid.New(),
+		Amount:        strconv.FormatFloat(params.InitialBalance, 'f', 2, 64),
+		TxDescription: "Initial balance",
+		TxDate:        time.Now(),
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		Posted:        true,
+		AccountID:     account.ID,
+	})
+	if txErr != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create initial balance transaction", err)
 		return
 	}
 
