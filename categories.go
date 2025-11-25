@@ -45,6 +45,12 @@ func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
 	}
+
+	if params.CategoryName == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing category name", errors.New("invalid parameters"))
+		return
+	}
+
 	categoryGroup := uuid.NullUUID{
 		UUID:  uuid.Nil,
 		Valid: false,
@@ -154,7 +160,7 @@ func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dbCategory.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "Can't update category", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "Can't update category", errors.New("unauthorized"))
 		return
 	}
 
@@ -162,6 +168,11 @@ func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	if params.CategoryName == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing category name", errors.New("invalid parameters"))
 		return
 	}
 
@@ -233,7 +244,7 @@ func (cfg *apiConfig) deleteCategory(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dbCategory.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "Can't delete category", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "Can't delete category", errors.New("unauthorized"))
 		return
 	}
 

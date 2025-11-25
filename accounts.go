@@ -44,6 +44,11 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if params.AccountName == "" || params.AccountType == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing account name and/or account type", errors.New("invalid parameters"))
+		return
+	}
+
 	account, err := cfg.db.AddAccount(req.Context(), database.AddAccountParams{
 		ID:          uuid.New(),
 		AccountName: params.AccountName,
@@ -140,7 +145,7 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 		return
 	}
 	if dbAccount.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "You can't update this account's info", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "You can't update this account's info", errors.New("unauthorized"))
 		return
 	}
 
@@ -148,6 +153,11 @@ func (cfg *apiConfig) updateAccountInfo(w http.ResponseWriter, req *http.Request
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	if params.AccountName == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing account name", errors.New("invalid parameters"))
 		return
 	}
 
@@ -192,7 +202,7 @@ func (cfg *apiConfig) deleteAccount(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dbAccount.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "You can't delete this account", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "You can't delete this account", errors.New("unauthorized"))
 		return
 	}
 

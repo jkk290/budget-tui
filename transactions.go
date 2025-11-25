@@ -50,6 +50,12 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
 	}
+
+	if params.Amount == 0 || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
+		respondWithError(w, http.StatusBadRequest, "Missing amount, description, date, and/or account", errors.New("invalid parameters"))
+		return
+	}
+
 	txCategoryID := uuid.NullUUID{
 		UUID:  uuid.Nil,
 		Valid: false,
@@ -129,7 +135,7 @@ func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request
 		return
 	}
 	if dbTransactionUserID != userID {
-		respondWithError(w, http.StatusUnauthorized, "Can't update transaction", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusUnauthorized, "Can't update transaction", errors.New("unauthorized"))
 		return
 	}
 
@@ -137,6 +143,11 @@ func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	if params.Amount == 0 || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
+		respondWithError(w, http.StatusBadRequest, "Missing amount, description, date, and/or account", errors.New("invalid parameters"))
 		return
 	}
 
@@ -204,7 +215,7 @@ func (cfg *apiConfig) deleteTransaction(w http.ResponseWriter, req *http.Request
 		return
 	}
 	if dbTransactionUserID != userID {
-		respondWithError(w, http.StatusUnauthorized, "Can't delete transaction", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusUnauthorized, "Can't delete transaction", errors.New("unauthorized"))
 		return
 	}
 
@@ -235,7 +246,7 @@ func (cfg *apiConfig) getAccountTransactions(w http.ResponseWriter, req *http.Re
 		return
 	}
 	if dbAccount.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "Can't view account transactions", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "Can't view account transactions", errors.New("unauthorized"))
 		return
 	}
 

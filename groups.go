@@ -47,6 +47,11 @@ func (cfg *apiConfig) createGroup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if params.GroupName == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing group name", errors.New("invalid parameters"))
+		return
+	}
+
 	dbGroup, err := cfg.db.CreateGroup(req.Context(), database.CreateGroupParams{
 		ID:        uuid.New(),
 		GroupName: params.GroupName,
@@ -126,7 +131,7 @@ func (cfg *apiConfig) updateGroup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dbGroup.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "You can't update this group", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "You can't update this group", errors.New("unauthorized"))
 		return
 	}
 
@@ -134,6 +139,11 @@ func (cfg *apiConfig) updateGroup(w http.ResponseWriter, req *http.Request) {
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	if params.GroupName == "" {
+		respondWithError(w, http.StatusBadRequest, "Missing group name", errors.New("invalid parameters"))
 		return
 	}
 
@@ -177,7 +187,7 @@ func (cfg *apiConfig) deleteGroup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dbGroup.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "You can't delete this group", errors.New("Unauthorized"))
+		respondWithError(w, http.StatusForbidden, "You can't delete this group", errors.New("unauthorized"))
 		return
 	}
 
