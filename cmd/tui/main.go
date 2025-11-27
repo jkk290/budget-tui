@@ -16,17 +16,27 @@ const (
 	navTransactions
 )
 
+type focusLevel int
+
+const (
+	focusNavbar focusLevel = iota
+	focusList
+)
+
 type model struct {
-	navItems    []string
-	cursor      int
-	currentView navigationItem
+	navItems     []string
+	cursor       int
+	currentView  navigationItem
+	accountsView accountViewModel
+	focus        focusLevel
 }
 
 func initialModel() model {
 	return model{
-		navItems:    []string{"Budget", "Categories", "Accounts", "Transactions"},
-		cursor:      0,
-		currentView: navBudget,
+		navItems:     []string{"Budget", "Categories", "Accounts", "Transactions"},
+		cursor:       0,
+		currentView:  navBudget,
+		accountsView: initialAccountModel(),
 	}
 }
 
