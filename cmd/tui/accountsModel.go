@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -31,10 +32,11 @@ type accountsModel struct {
 	accounts []Account
 	cursor   int
 
+	formEditing     bool
 	formFieldCursor int
-	formName        string
+	nameInput       textinput.Model
+	balanceInput    textinput.Model
 	formTypeIndex   int
-	formBalance     string
 }
 
 var accountTypes = []string{
@@ -45,6 +47,15 @@ var accountTypes = []string{
 }
 
 func initialAccountModel() accountsModel {
+	name := textinput.New()
+	name.Placeholder = "Account Name"
+	name.CharLimit = 64
+	name.Focus()
+
+	balance := textinput.New()
+	balance.Placeholder = "0.00"
+	balance.CharLimit = 16
+
 	return accountsModel{
 		accounts: []Account{
 			{
@@ -56,6 +67,9 @@ func initialAccountModel() accountsModel {
 				accountType: "Credit Card",
 			},
 		},
+		nameInput:     name,
+		balanceInput:  balance,
+		formTypeIndex: 0,
 	}
 }
 
@@ -81,9 +95,15 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.mode = accountsModeFormNew
 
 				m.formFieldCursor = formFieldName
-				m.formName = ""
+				m.formEditing = false
+
+				m.nameInput.SetValue("")
+				m.nameInput.Blur()
+
+				m.balanceInput.SetValue("")
+				m.balanceInput.Blur()
+
 				m.formTypeIndex = 0
-				m.formBalance = ""
 			}
 		case accountsModeDetails:
 			switch key {
@@ -91,6 +111,26 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.mode = accountsModeList
 			}
 		case accountsModeFormNew, accountsModeFormEdit:
+			if m.formEditing {
+				if key == "esc" {
+					m.formEditing = false
+					m.nameInput.Blur()
+					m.balanceInput.Blur()
+					return m, nil
+				}
+
+				switch m.formFieldCursor {
+				case formFieldName:
+					var cmd tea.Cmd
+					m.nameInput, cmd = m.nameInput.Update(msg)
+					return m, cmd
+				case formFieldBalance:
+					var cmd tea.Cmd
+					m.balanceInput, cmd = m.balanceInput.Update(msg)
+					return m, cmd
+				}
+			}
+
 			switch key {
 			case "esc":
 				m.mode = accountsModeList
@@ -105,9 +145,20 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				}
 			case "enter":
 				switch m.formFieldCursor {
+				case formFieldName, formFieldBalance:
+					m.formEditing = true
+					m.nameInput.Blur()
+					m.balanceInput.Blur()
+
+					switch m.formFieldCursor {
+					case formFieldName:
+						m.nameInput.Focus()
+					case formFieldBalance:
+						m.balanceInput.Focus()
+					}
 				case formFieldSave:
 					newAccount := Account{
-						name:        m.formName,
+						name:        m.nameInput.Value(),
 						accountType: accountTypes[m.formTypeIndex],
 					}
 					m.accounts = append(m.accounts, newAccount)
@@ -116,11 +167,24 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			default:
 				switch m.formFieldCursor {
 				case formFieldName:
-					// create form input
+					var cmd tea.Cmd
+					m.nameInput, cmd = m.nameInput.Update(msg)
+					return m, cmd
 				case formFieldBalance:
-					// create form input
+					var cmd tea.Cmd
+					m.balanceInput, cmd = m.balanceInput.Update(msg)
+					return m, cmd
 				case formFieldType:
-					// implement dropdown or type selection
+					if key == "left" || key == "h" {
+						if m.formTypeIndex > 0 {
+							m.formTypeIndex--
+						}
+					}
+					if key == "right" || key == "l" {
+						if m.formTypeIndex < len(accountTypes)-1 {
+							m.formTypeIndex++
+						}
+					}
 				}
 			}
 		}
@@ -161,12 +225,12 @@ func (m accountsModel) View() string {
 			return " "
 		}
 
-		s += fmt.Sprintf("%s Name: %s\n", currentRow(formFieldName), m.formName)
-		s += fmt.Sprintf("%s Type: %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
-		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.formBalance)
+		s += fmt.Sprintf("%s Name: %s\n", currentRow(formFieldName), m.nameInput.View())
+		s += fmt.Sprintf("%s Type (h/l to change): %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
+		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
 		s += "\n"
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
-		s += "\n(Use j/k to move, Esc to cancel)\n"
+		s += "\n(Use j/k to move, Enter to edit field, Esc to stop editing, Esc again to cancel)\n"
 
 		return s
 	}
