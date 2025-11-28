@@ -16,27 +16,43 @@ const (
 	navTransactions
 )
 
-type focusLevel int
+type section int
 
 const (
-	focusNavbar focusLevel = iota
-	focusList
+	sectionBudget section = iota
+	sectionCategories
+	sectionAccounts
+	sectionTransactions
+)
+
+type focus int
+
+const (
+	focusNav focus = iota
+	focusMain
+	focusDetail
 )
 
 type model struct {
-	navItems     []string
-	cursor       int
-	currentView  navigationItem
-	accountsView accountViewModel
-	focus        focusLevel
+	navItems  []string
+	navCursor int
+
+	currentSection section
+
+	// budgetModel budgetModel
+	// categoriesModel categoriesModel
+	accountsModel accountsModel
+	// transactionsModel transactionsModel
+
+	focus focus
 }
 
 func initialModel() model {
 	return model{
-		navItems:     []string{"Budget", "Categories", "Accounts", "Transactions"},
-		cursor:       0,
-		currentView:  navBudget,
-		accountsView: initialAccountModel(),
+		navItems:       []string{"Budget", "Categories", "Accounts", "Transactions"},
+		navCursor:      0,
+		currentSection: sectionBudget,
+		accountsModel:  initialAccountModel(),
 	}
 }
 
@@ -47,31 +63,81 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		key := msg.String()
+
+		if key == "ctrl+c" || key == "q" {
 			return m, tea.Quit
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+		}
+
+		if key == "tab" {
+			if m.focus == focusNav {
+				m.focus = focusMain
+			} else {
+				m.focus = focusNav
 			}
-		case "down", "j":
-			if m.cursor < len(m.navItems)-1 {
-				m.cursor++
+			return m, nil
+		}
+
+		switch m.focus {
+		case focusNav:
+			switch msg.String() {
+			case "up", "k":
+				if m.navCursor > 0 {
+					m.navCursor--
+				}
+			case "down", "j":
+				if m.navCursor < len(m.navItems)-1 {
+					m.navCursor++
+				}
+			case "enter":
+				m.currentSection = section(m.navCursor)
+				m.focus = focusMain
 			}
-		case "enter":
-			m.currentView = navigationItem(m.cursor)
+		case focusMain:
+			switch m.currentSection {
+			case sectionAccounts:
+				var cmd tea.Cmd
+				m.accountsModel, cmd = m.accountsModel.Update(msg)
+				return m, cmd
+			case sectionBudget:
+			case sectionCategories:
+			case sectionTransactions:
+			default:
+				return m, nil
+			}
+		case focusDetail:
+			return m, nil
 		}
 	}
 	return m, nil
 }
 
 func (m model) View() string {
+	sidebar := m.navView()
+
+	var main string
+
+	switch m.currentSection {
+	case sectionBudget:
+		main = "Budget View\n"
+	case sectionCategories:
+		main = "Categories View\n"
+	case sectionAccounts:
+		main = m.accountsModel.View()
+	case sectionTransactions:
+		main = "Transactions View\n"
+	}
+
+	return sidebar + "\n---\n\n" + main
+}
+
+func (m model) navView() string {
 	s := "BudgeTUI\n\n"
-	s += fmt.Sprintf("\nCurrent View: %v\n\n", m.currentView)
+	s += fmt.Sprintf("\nCurrent View: %v\n\n", m.currentSection)
 
 	for i, navItem := range m.navItems {
 		cursor := " "
-		if m.cursor == i {
+		if m.navCursor == i {
 			cursor = ">"
 		}
 
