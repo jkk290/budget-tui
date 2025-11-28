@@ -15,6 +15,13 @@ const (
 	accountsModeFormEdit
 )
 
+const (
+	formFieldName = iota
+	formFieldType
+	formFieldBalance
+	formFieldSave
+)
+
 type Account struct {
 	name        string
 	accountType string
@@ -23,7 +30,18 @@ type accountsModel struct {
 	mode     accountsMode
 	accounts []Account
 	cursor   int
-	// fields for selected account / form inputs
+
+	formFieldCursor int
+	formName        string
+	formTypeIndex   int
+	formBalance     string
+}
+
+var accountTypes = []string{
+	"Checking",
+	"Savings",
+	"Credit Card",
+	"Investing",
 }
 
 func initialAccountModel() accountsModel {
@@ -59,6 +77,13 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				}
 			case "enter":
 				m.mode = accountsModeDetails
+			case "n":
+				m.mode = accountsModeFormNew
+
+				m.formFieldCursor = formFieldName
+				m.formName = ""
+				m.formTypeIndex = 0
+				m.formBalance = ""
 			}
 		case accountsModeDetails:
 			switch key {
@@ -66,7 +91,38 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.mode = accountsModeList
 			}
 		case accountsModeFormNew, accountsModeFormEdit:
-			// form input handling
+			switch key {
+			case "esc":
+				m.mode = accountsModeList
+				return m, nil
+			case "up", "k":
+				if m.formFieldCursor > formFieldName {
+					m.formFieldCursor--
+				}
+			case "down", "j":
+				if m.formFieldCursor < formFieldSave {
+					m.formFieldCursor++
+				}
+			case "enter":
+				switch m.formFieldCursor {
+				case formFieldSave:
+					newAccount := Account{
+						name:        m.formName,
+						accountType: accountTypes[m.formTypeIndex],
+					}
+					m.accounts = append(m.accounts, newAccount)
+					m.mode = accountsModeList
+				}
+			default:
+				switch m.formFieldCursor {
+				case formFieldName:
+					// create form input
+				case formFieldBalance:
+					// create form input
+				case formFieldType:
+					// implement dropdown or type selection
+				}
+			}
 		}
 
 	}
@@ -86,7 +142,7 @@ func (m accountsModel) View() string {
 
 			s += fmt.Sprintf("%s %s\n", cursor, account.name)
 		}
-		s += "\n(Use j/k to move, Enter to view details)\n"
+		s += "\n(Use j/k to move, Enter to view details, n to create new account)\n"
 		return s
 	case accountsModeDetails:
 		acc := m.accounts[m.cursor]
@@ -95,6 +151,24 @@ func (m accountsModel) View() string {
 			acc.name,
 			acc.accountType,
 		)
+	case accountsModeFormNew:
+		s := "New Account\n\n"
+
+		currentRow := func(field int) string {
+			if m.formFieldCursor == field {
+				return ">"
+			}
+			return " "
+		}
+
+		s += fmt.Sprintf("%s Name: %s\n", currentRow(formFieldName), m.formName)
+		s += fmt.Sprintf("%s Type: %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
+		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.formBalance)
+		s += "\n"
+		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
+		s += "\n(Use j/k to move, Esc to cancel)\n"
+
+		return s
 	}
 
 	return "Unknown accounts mode\n"
