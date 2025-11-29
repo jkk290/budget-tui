@@ -15,6 +15,7 @@ const (
 	accountsModeDetails
 	accountsModeFormNew
 	accountsModeFormEdit
+	accountsModeDelete
 )
 
 const (
@@ -22,6 +23,11 @@ const (
 	formFieldType
 	formFieldBalance
 	formFieldSave
+)
+
+const (
+	confirmYes = iota
+	confirmCancel
 )
 
 type Account struct {
@@ -38,6 +44,8 @@ type accountsModel struct {
 	nameInput       textinput.Model
 	balanceInput    textinput.Model
 	formTypeIndex   int
+
+	confirmCursor int
 }
 
 var accountTypes = []string{
@@ -105,11 +113,19 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.balanceInput.Blur()
 
 				m.formTypeIndex = 0
+			case "d":
+				if len(m.accounts) > 0 {
+					m.mode = accountsModeDelete
+					m.confirmCursor = confirmCancel
+				}
 			}
 		case accountsModeDetails:
 			switch key {
 			case "esc":
 				m.mode = accountsModeList
+			case "d":
+				m.mode = accountsModeDelete
+				m.confirmCursor = confirmCancel
 			case "e":
 				m.mode = accountsModeFormEdit
 				m.formFieldCursor = formFieldName
@@ -212,6 +228,39 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 					}
 				}
 			}
+		case accountsModeDelete:
+			switch key {
+			case "esc":
+				m.mode = accountsModeList
+			case "up", "k":
+				if m.confirmCursor > confirmYes {
+					m.confirmCursor--
+				}
+			case "down", "j":
+				if m.confirmCursor < confirmCancel {
+					m.confirmCursor++
+				}
+			case "enter":
+				switch m.confirmCursor {
+				case confirmYes:
+					if len(m.accounts) == 1 {
+						m.accounts = []Account{}
+						m.cursor = 0
+						m.mode = accountsModeList
+					} else {
+						prevCursor := m.cursor
+						m.accounts = append(m.accounts[:m.cursor], m.accounts[m.cursor+1:]...)
+						if prevCursor >= len(m.accounts) {
+							m.cursor = len(m.accounts) - 1
+						} else {
+							m.cursor = prevCursor
+						}
+						m.mode = accountsModeList
+					}
+				case confirmCancel:
+					m.mode = accountsModeList
+				}
+			}
 		}
 	}
 	return m, nil
@@ -229,12 +278,12 @@ func (m accountsModel) View() string {
 
 			s += fmt.Sprintf("%s %s\n", cursor, account.name)
 		}
-		s += "\n(Use j/k to move, Enter to view details, n to create new account)\n"
+		s += "\n(Use j/k to move, Enter to view details, n to create new account, d to delete account)\n"
 		return s
 	case accountsModeDetails:
 		acc := m.accounts[m.cursor]
 		return fmt.Sprintf(
-			"Account Details\n\nName: %s\nType: %s\n\n(Press Esc to go back, e to edit)\n",
+			"Account Details\n\nName: %s\nType: %s\n\n(Press Esc to go back, e to edit, d to delete)\n",
 			acc.name,
 			acc.accountType,
 		)
@@ -272,6 +321,24 @@ func (m accountsModel) View() string {
 		s += "\n"
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
 		s += "\n(Use j/k to move, Enter to edit field, Esc to stop editing, Esc again to cancel)\n"
+
+		return s
+	case accountsModeDelete:
+		s := "Delete Account\n\n"
+		s += fmt.Sprintf("Are you sure you want to delete Account '%s'?\n", m.accounts[m.cursor].name)
+		s += "This will also delete all of the account's transactions.\n\n"
+
+		currentRow := func(field int) string {
+			if m.confirmCursor == field {
+				return ">"
+			}
+			return " "
+		}
+
+		s += fmt.Sprintf("%s [ Yes ]\n", currentRow(confirmYes))
+		s += fmt.Sprintf("%s [ Cancel ]\n", currentRow(confirmCancel))
+
+		s += "\n(Use j/k to move, enter to select, Esc to cancel)"
 
 		return s
 	}
