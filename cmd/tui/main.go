@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/joho/godotenv"
 )
 
 type navigationItem int
@@ -33,6 +38,10 @@ const (
 	focusDetail
 )
 
+type AccountsAPI interface {
+	ListAccounts(ctx context.Context) ([]Account, error)
+}
+
 type model struct {
 	navItems  []string
 	navCursor int
@@ -45,23 +54,38 @@ type model struct {
 	// transactionsModel transactionsModel
 
 	focus focus
+
+	accountsAPI AccountsAPI
 }
 
-func initialModel() model {
+func initialModel(api AccountsAPI) model {
 	return model{
 		navItems:       []string{"Budget", "Categories", "Accounts", "Transactions"},
 		navCursor:      0,
 		currentSection: sectionBudget,
 		accountsModel:  initialAccountModel(),
+		accountsAPI:    api,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return loadAccountsCmd(m.accountsAPI)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
+	case accountsLoadedMsg:
+		if msg.err != nil {
+			// implement error message
+			// m.accountsModel.err = msg.err
+			return m, nil
+		}
+
+		m.accountsModel.accounts = msg.accounts
+		m.accountsModel.cursor = 0
+		return m, nil
+
 	case tea.KeyMsg:
 		key := msg.String()
 
@@ -150,9 +174,48 @@ func (m model) navView() string {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	godotenv.Load()
+	jwt := os.Getenv("BUDGETUI_JWT")
+	api := NewHTTPAccountsAPI("http://localhost:8080/api/v1", jwt)
+
+	p := tea.NewProgram(initialModel(api))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("An error occurred: %v", err)
 		os.Exit(1)
 	}
+}
+
+type HTTPAccountsAPI struct {
+	baseURL string
+	client  *http.Client
+	jwt     string
+}
+
+func NewHTTPAccountsAPI(baseURL, jwt string) *HTTPAccountsAPI {
+	return &HTTPAccountsAPI{
+		baseURL: baseURL,
+		client:  &http.Client{Timeout: 10 * time.Second},
+		jwt:     jwt,
+	}
+}
+
+func (api *HTTPAccountsAPI) ListAccounts(ctx context.Context) ([]Account, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, api.baseURL+"/accounts", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+api.jwt)
+
+	resp, err := api.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var accounts []Account
+	if err := json.NewDecoder(resp.Body).Decode(&accounts); err != nil {
+		return nil, err
+	}
+
+	return accounts, nil
 }

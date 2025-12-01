@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 )
 
 type accountsMode int
@@ -30,10 +33,20 @@ const (
 	confirmCancel
 )
 
-type Account struct {
-	name        string
-	accountType string
+type accountsLoadedMsg struct {
+	accounts []Account
+	err      error
 }
+
+type Account struct {
+	Id          uuid.UUID `json:"id"`
+	AccountName string    `json:"account_name"`
+	AccountType string    `json:"account_type"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
 type accountsModel struct {
 	mode     accountsMode
 	accounts []Account
@@ -59,26 +72,33 @@ func initialAccountModel() accountsModel {
 	name := textinput.New()
 	name.Placeholder = "Account Name"
 	name.CharLimit = 64
-	name.Focus()
+	name.Blur()
 
 	balance := textinput.New()
 	balance.Placeholder = "0.00"
 	balance.CharLimit = 16
+	balance.Blur()
 
 	return accountsModel{
-		accounts: []Account{
-			{
-				name:        "Account 1",
-				accountType: "Checking",
-			},
-			{
-				name:        "Account 2",
-				accountType: "Credit Card",
-			},
-		},
-		nameInput:     name,
-		balanceInput:  balance,
-		formTypeIndex: 0,
+		accounts:        []Account{},
+		cursor:          0,
+		formEditing:     false,
+		formFieldCursor: formFieldName,
+		nameInput:       name,
+		balanceInput:    balance,
+		formTypeIndex:   0,
+		confirmCursor:   confirmCancel,
+	}
+}
+
+func loadAccountsCmd(api AccountsAPI) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.TODO()
+		accounts, err := api.ListAccounts(ctx)
+		return accountsLoadedMsg{
+			accounts: accounts,
+			err:      err,
+		}
 	}
 }
 
@@ -131,9 +151,9 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.formFieldCursor = formFieldName
 				m.formEditing = false
 
-				m.nameInput.SetValue(m.accounts[m.cursor].name)
+				m.nameInput.SetValue(m.accounts[m.cursor].AccountName)
 				m.nameInput.Blur()
-				m.formTypeIndex = slices.Index(accountTypes, m.accounts[m.cursor].accountType)
+				m.formTypeIndex = slices.Index(accountTypes, (m.accounts[m.cursor].AccountType))
 			}
 		case accountsModeFormNew, accountsModeFormEdit:
 			if m.formEditing {
@@ -193,13 +213,13 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 					switch m.mode {
 					case accountsModeFormNew:
 						newAccount := Account{
-							name:        m.nameInput.Value(),
-							accountType: accountTypes[m.formTypeIndex],
+							AccountName: m.nameInput.Value(),
+							AccountType: accountTypes[m.formTypeIndex],
 						}
 						m.accounts = append(m.accounts, newAccount)
 						m.mode = accountsModeList
 					case accountsModeFormEdit:
-						m.accounts[m.cursor].name = m.nameInput.Value()
+						m.accounts[m.cursor].AccountName = m.nameInput.Value()
 						m.mode = accountsModeList
 					}
 				}
@@ -276,7 +296,7 @@ func (m accountsModel) View() string {
 				cursor = ">"
 			}
 
-			s += fmt.Sprintf("%s %s\n", cursor, account.name)
+			s += fmt.Sprintf("%s %s\n", cursor, account.AccountName)
 		}
 		s += "\n(Use j/k to move, Enter to view details, n to create new account, d to delete account)\n"
 		return s
@@ -284,8 +304,8 @@ func (m accountsModel) View() string {
 		acc := m.accounts[m.cursor]
 		return fmt.Sprintf(
 			"Account Details\n\nName: %s\nType: %s\n\n(Press Esc to go back, e to edit, d to delete)\n",
-			acc.name,
-			acc.accountType,
+			acc.AccountName,
+			acc.AccountType,
 		)
 	case accountsModeFormNew:
 		s := "New Account\n\n"
@@ -325,7 +345,7 @@ func (m accountsModel) View() string {
 		return s
 	case accountsModeDelete:
 		s := "Delete Account\n\n"
-		s += fmt.Sprintf("Are you sure you want to delete Account '%s'?\n", m.accounts[m.cursor].name)
+		s += fmt.Sprintf("Are you sure you want to delete Account '%s'?\n", m.accounts[m.cursor].AccountName)
 		s += "This will also delete all of the account's transactions.\n\n"
 
 		currentRow := func(field int) string {
