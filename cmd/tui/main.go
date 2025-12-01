@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,8 +9,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/joho/godotenv"
+)
+
+type screen int
+
+const (
+	screenLogin screen = iota
+	screenMain
 )
 
 type navigationItem int
@@ -43,6 +51,12 @@ type AccountsAPI interface {
 }
 
 type model struct {
+	jwt           string
+	screen        screen
+	loginErr      string
+	loginUsername textinput.Model
+	loginPassword textinput.Model
+
 	navItems  []string
 	navCursor int
 
@@ -59,7 +73,22 @@ type model struct {
 }
 
 func initialModel(api AccountsAPI) model {
+	username := textinput.New()
+	username.Placeholder = "username"
+	username.Focus()
+	username.Prompt = "Username: "
+
+	password := textinput.New()
+	password.Placeholder = "password"
+	password.EchoMode = textinput.EchoPassword
+	password.Prompt = "Password: "
+
 	return model{
+		screen:        screenLogin,
+		jwt:           "",
+		loginUsername: username,
+		loginPassword: password,
+
 		navItems:       []string{"Budget", "Categories", "Accounts", "Transactions"},
 		navCursor:      0,
 		currentSection: sectionBudget,
@@ -69,10 +98,73 @@ func initialModel(api AccountsAPI) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return loadAccountsCmd(m.accountsAPI)
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.screen {
+	case screenLogin:
+		return m.updateLogin(msg)
+	case screenMain:
+		return m.updateMain(msg)
+	default:
+		return m, nil
+	}
+
+}
+
+func (m model) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+
+		case "tab", "shift+tab":
+			if m.loginUsername.Focused() {
+				m.loginUsername.Blur()
+				m.loginPassword.Focus()
+			} else {
+				m.loginPassword.Blur()
+				m.loginUsername.Focus()
+			}
+			return m, nil
+
+		case "enter":
+			if m.loginPassword.Focused() {
+				m.loginErr = ""
+				cmd := loginCmd("http://localhost:8080/api/v1", m.loginUsername.Value(), m.loginPassword.Value())
+				return m, cmd
+			}
+		}
+
+		var cmds []tea.Cmd
+		var cmd tea.Cmd
+		m.loginUsername, cmd = m.loginUsername.Update(msg)
+		cmds = append(cmds, cmd)
+		m.loginPassword, cmd = m.loginPassword.Update(msg)
+		cmds = append(cmds, cmd)
+		return m, tea.Batch(cmds...)
+
+	case loginResultMsg:
+		if msg.err != nil {
+			m.loginErr = msg.err.Error()
+			return m, nil
+		}
+
+		m.jwt = msg.token
+		if api, ok := m.accountsAPI.(*HTTPAccountsAPI); ok {
+			api.jwt = m.jwt
+		}
+
+		m.screen = screenMain
+		return m, loadAccountsCmd(m.accountsAPI)
+	}
+
+	return m, nil
+}
+
+func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case accountsLoadedMsg:
@@ -134,9 +226,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+
 }
 
 func (m model) View() string {
+	switch m.screen {
+	case screenLogin:
+		return m.loginView()
+	case screenMain:
+		return m.mainView()
+	default:
+		return ""
+	}
+}
+
+func (m model) loginView() string {
+	s := "BudgeTUI Login\n\n"
+	s += m.loginUsername.View() + "\n"
+	s += m.loginPassword.View() + "\n\n"
+	s += "Press Tab to switch between username/password, Enter on password to log in \n"
+	if m.loginErr != "" {
+		s += "\nError: " + m.loginErr + "\n"
+	}
+	return s
+}
+
+func (m model) mainView() string {
 	sidebar := m.navView()
 
 	var main string
@@ -174,14 +289,62 @@ func (m model) navView() string {
 }
 
 func main() {
-	godotenv.Load()
-	jwt := os.Getenv("BUDGETUI_JWT")
-	api := NewHTTPAccountsAPI("http://localhost:8080/api/v1", jwt)
+	api := NewHTTPAccountsAPI("http://localhost:8080/api/v1", "")
 
 	p := tea.NewProgram(initialModel(api))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("An error occurred: %v", err)
 		os.Exit(1)
+	}
+}
+
+type loginResultMsg struct {
+	token string
+	err   error
+}
+
+func loginCmd(baseURL, username, password string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		body := struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}{
+			Username: username,
+			Password: password,
+		}
+
+		buf := new(bytes.Buffer)
+		if err := json.NewEncoder(buf).Encode(body); err != nil {
+			return loginResultMsg{err: err}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/login", buf)
+		if err != nil {
+			return loginResultMsg{err: err}
+		}
+		req.Header.Set("content-type", "application/json")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return loginResultMsg{err: err}
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return loginResultMsg{err: fmt.Errorf("login failed: %s", resp.Status)}
+		}
+
+		var respBody struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			return loginResultMsg{err: err}
+		}
+
+		return loginResultMsg{token: respBody.Token, err: nil}
 	}
 }
 
