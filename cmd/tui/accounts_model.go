@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"time"
@@ -32,11 +31,6 @@ const (
 	confirmYes = iota
 	confirmCancel
 )
-
-type accountsLoadedMsg struct {
-	accounts []Account
-	err      error
-}
 
 type Account struct {
 	Id          uuid.UUID `json:"id"`
@@ -70,12 +64,10 @@ var accountTypes = []string{
 
 func initialAccountModel() accountsModel {
 	name := textinput.New()
-	name.Placeholder = "Account Name"
 	name.CharLimit = 64
 	name.Blur()
 
 	balance := textinput.New()
-	balance.Placeholder = "0.00"
 	balance.CharLimit = 16
 	balance.Blur()
 
@@ -88,17 +80,6 @@ func initialAccountModel() accountsModel {
 		balanceInput:    balance,
 		formTypeIndex:   0,
 		confirmCursor:   confirmCancel,
-	}
-}
-
-func loadAccountsCmd(api AccountsAPI) tea.Cmd {
-	return func() tea.Msg {
-		ctx := context.TODO()
-		accounts, err := api.ListAccounts(ctx)
-		return accountsLoadedMsg{
-			accounts: accounts,
-			err:      err,
-		}
 	}
 }
 
@@ -298,12 +279,12 @@ func (m accountsModel) View() string {
 
 			s += fmt.Sprintf("%s %s\n", cursor, account.AccountName)
 		}
-		s += "\n(Use j/k to move, Enter to view details, n to create new account, d to delete account)\n"
+		s += "\n(Use 'j'/'k' to move, 'enter' to view details, 'n' to create new account, 'd' to delete account)\n"
 		return s
 	case accountsModeDetails:
 		acc := m.accounts[m.cursor]
 		return fmt.Sprintf(
-			"Account Details\n\nName: %s\nType: %s\n\n(Press Esc to go back, e to edit, d to delete)\n",
+			"Account Details\n\nName: %s\nType: %s\n\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n",
 			acc.AccountName,
 			acc.AccountType,
 		)
@@ -318,11 +299,11 @@ func (m accountsModel) View() string {
 		}
 
 		s += fmt.Sprintf("%s Name: %s\n", currentRow(formFieldName), m.nameInput.View())
-		s += fmt.Sprintf("%s Type (h/l to change): %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
+		s += fmt.Sprintf("%s Type ('h'/'l' to change): %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
 		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
 		s += "\n"
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
-		s += "\n(Use j/k to move, Enter to edit field, Esc to stop editing, Esc again to cancel)\n"
+		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"
 
 		return s
 	case accountsModeFormEdit:
@@ -340,7 +321,7 @@ func (m accountsModel) View() string {
 		// s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
 		s += "\n"
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
-		s += "\n(Use j/k to move, Enter to edit field, Esc to stop editing, Esc again to cancel)\n"
+		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"
 
 		return s
 	case accountsModeDelete:
@@ -358,7 +339,7 @@ func (m accountsModel) View() string {
 		s += fmt.Sprintf("%s [ Yes ]\n", currentRow(confirmYes))
 		s += fmt.Sprintf("%s [ Cancel ]\n", currentRow(confirmCancel))
 
-		s += "\n(Use j/k to move, enter to select, Esc to cancel)"
+		s += "\n(Use 'j'/'k' to move, 'enter' to select, 'esc' to cancel)"
 
 		return s
 	}
