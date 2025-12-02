@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 const createCategory = `-- name: CreateCategory :one
@@ -31,7 +32,7 @@ type CreateCategoryParams struct {
 	CategoryName string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	Budget       string
+	Budget       decimal.Decimal
 	UserID       uuid.UUID
 	GroupID      uuid.NullUUID
 }
@@ -138,7 +139,7 @@ RETURNING id, category_name, created_at, updated_at, budget, user_id, group_id
 type UpdateCategoryParams struct {
 	ID           uuid.UUID
 	CategoryName string
-	Budget       string
+	Budget       decimal.Decimal
 	GroupID      uuid.NullUUID
 }
 

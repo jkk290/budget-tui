@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -38,4 +39,54 @@ func (q *Queries) GetTransactionUserID(ctx context.Context, id uuid.UUID) (uuid.
 	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const getUserAccountsBalances = `-- name: GetUserAccountsBalances :many
+SELECT accounts.id, accounts.account_name, accounts.account_type, accounts.created_at, accounts.updated_at, accounts.user_id, (SUM(transactions.amount * 100))::bigint AS account_balance_cents
+FROM accounts
+INNER JOIN transactions
+ON transactions.account_id = accounts.id
+WHERE accounts.user_id = $1
+GROUP BY accounts.id
+`
+
+type GetUserAccountsBalancesRow struct {
+	ID                  uuid.UUID
+	AccountName         string
+	AccountType         string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	UserID              uuid.UUID
+	AccountBalanceCents int64
+}
+
+func (q *Queries) GetUserAccountsBalances(ctx context.Context, userID uuid.UUID) ([]GetUserAccountsBalancesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserAccountsBalances, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserAccountsBalancesRow
+	for rows.Next() {
+		var i GetUserAccountsBalancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountName,
+			&i.AccountType,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UserID,
+			&i.AccountBalanceCents,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

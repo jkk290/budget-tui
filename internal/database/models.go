@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type Account struct {
@@ -24,7 +25,7 @@ type Category struct {
 	CategoryName string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	Budget       string
+	Budget       decimal.Decimal
 	UserID       uuid.UUID
 	GroupID      uuid.NullUUID
 }
@@ -39,7 +40,7 @@ type Group struct {
 
 type Transaction struct {
 	ID            uuid.UUID
-	Amount        string
+	Amount        decimal.Decimal
 	TxDescription string
 	TxDate        time.Time
 	CreatedAt     time.Time

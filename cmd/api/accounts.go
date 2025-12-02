@@ -4,27 +4,28 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jkk290/budget-tui/internal/database"
+	"github.com/shopspring/decimal"
 )
 
 type Account struct {
-	ID          uuid.UUID `json:"id"`
-	AccountName string    `json:"account_name"`
-	AccountType string    `json:"account_type"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	UserID      uuid.UUID `json:"user_id"`
+	ID             uuid.UUID       `json:"id"`
+	AccountName    string          `json:"account_name"`
+	AccountType    string          `json:"account_type"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	UserID         uuid.UUID       `json:"user_id"`
+	AccountBalance decimal.Decimal `json:"account_balance"`
 }
 
 func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		AccountName    string  `json:"account_name"`
-		AccountType    string  `json:"account_type"`
-		InitialBalance float64 `json:"initial_balance"`
+		AccountName    string          `json:"account_name"`
+		AccountType    string          `json:"account_type"`
+		InitialBalance decimal.Decimal `json:"initial_balance"`
 	}
 
 	type response struct {
@@ -63,7 +64,7 @@ func (cfg *apiConfig) addAccount(w http.ResponseWriter, req *http.Request) {
 	}
 	_, txErr := cfg.db.AddTransaction(req.Context(), database.AddTransactionParams{
 		ID:            uuid.New(),
-		Amount:        strconv.FormatFloat(params.InitialBalance, 'f', 2, 64),
+		Amount:        params.InitialBalance,
 		TxDescription: "Initial balance",
 		TxDate:        time.Now(),
 		CreatedAt:     time.Now(),
@@ -96,7 +97,7 @@ func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dbAccounts, err := cfg.db.GetAccountsByUserID(req.Context(), userID)
+	dbAccounts, err := cfg.db.GetUserAccountsBalances(req.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve accounts", err)
 		return
@@ -104,13 +105,15 @@ func (cfg *apiConfig) getAccounts(w http.ResponseWriter, req *http.Request) {
 
 	accounts := []Account{}
 	for _, account := range dbAccounts {
+		balance := decimal.NewFromInt(account.AccountBalanceCents).Div(decimal.NewFromInt(100))
 		accounts = append(accounts, Account{
-			ID:          account.ID,
-			AccountName: account.AccountName,
-			AccountType: account.AccountType,
-			CreatedAt:   account.CreatedAt,
-			UpdatedAt:   account.UpdatedAt,
-			UserID:      account.UserID,
+			ID:             account.ID,
+			AccountName:    account.AccountName,
+			AccountType:    account.AccountType,
+			CreatedAt:      account.CreatedAt,
+			UpdatedAt:      account.UpdatedAt,
+			UserID:         account.UserID,
+			AccountBalance: balance,
 		})
 	}
 

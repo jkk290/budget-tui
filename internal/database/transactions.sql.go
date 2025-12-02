@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 const addTransaction = `-- name: AddTransaction :one
@@ -30,7 +31,7 @@ RETURNING id, amount, tx_description, tx_date, created_at, updated_at, posted, a
 
 type AddTransactionParams struct {
 	ID            uuid.UUID
-	Amount        string
+	Amount        decimal.Decimal
 	TxDescription string
 	TxDate        time.Time
 	CreatedAt     time.Time
@@ -190,7 +191,7 @@ RETURNING id, amount, tx_description, tx_date, created_at, updated_at, posted, a
 
 type UpdateTransactionParams struct {
 	ID            uuid.UUID
-	Amount        string
+	Amount        decimal.Decimal
 	TxDescription string
 	TxDate        time.Time
 	Posted        bool

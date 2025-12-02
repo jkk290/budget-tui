@@ -1,8 +1,14 @@
 version: "2"
 sql:
-  - engine: "postgresql"
-    queries: "sql/queries"
-    schema: "sql/schema"
-    gen:
-      go:
-        out: "internal/database"
+    - engine: "postgresql"
+      queries: "sql/queries"
+      schema: "sql/schema"
+      gen:
+          go:
+              out: "internal/database"
+              overrides:
+                  - db_type: "pg_catalog.numeric"
+                    nullable: false
+                    go_type:
+                        import: "github.com/shopspring/decimal"
+                        type: "Decimal"

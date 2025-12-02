@@ -3,35 +3,34 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jkk290/budget-tui/internal/database"
+	"github.com/shopspring/decimal"
 )
 
 type Transaction struct {
-	ID            uuid.UUID `json:"id"`
-	Amount        float64   `json:"amount"`
-	TxDescription string    `json:"tx_description"`
-	TxDate        time.Time `json:"tx_date"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Posted        bool      `json:"posted"`
-	AccountID     uuid.UUID `json:"account_id"`
-	CategoryID    uuid.UUID `json:"category_id"`
+	ID            uuid.UUID       `json:"id"`
+	Amount        decimal.Decimal `json:"amount"`
+	TxDescription string          `json:"tx_description"`
+	TxDate        time.Time       `json:"tx_date"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+	Posted        bool            `json:"posted"`
+	AccountID     uuid.UUID       `json:"account_id"`
+	CategoryID    uuid.UUID       `json:"category_id"`
 }
 
 func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Amount        float64   `json:"amount"`
-		TxDescription string    `json:"tx_description"`
-		TxDate        time.Time `json:"tx_date"`
-		Posted        bool      `json:"posted"`
-		AccountID     uuid.UUID `json:"account_id"`
-		CategoryID    uuid.UUID `json:"category_id"`
+		Amount        decimal.Decimal `json:"amount"`
+		TxDescription string          `json:"tx_description"`
+		TxDate        time.Time       `json:"tx_date"`
+		Posted        bool            `json:"posted"`
+		AccountID     uuid.UUID       `json:"account_id"`
+		CategoryID    uuid.UUID       `json:"category_id"`
 	}
 
 	type response struct {
@@ -51,7 +50,7 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if params.Amount == 0 || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
+	if params.Amount.Equal(decimal.NewFromInt(0)) || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
 		respondWithError(w, http.StatusBadRequest, "Missing amount, description, date, and/or account", errors.New("invalid parameters"))
 		return
 	}
@@ -67,7 +66,7 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 
 	dbTransaction, err := cfg.db.AddTransaction(req.Context(), database.AddTransactionParams{
 		ID:            uuid.New(),
-		Amount:        strconv.FormatFloat(params.Amount, 'f', 2, 64),
+		Amount:        params.Amount,
 		TxDescription: params.TxDescription,
 		TxDate:        params.TxDate,
 		CreatedAt:     time.Now(),
@@ -81,16 +80,16 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dbAmountFloat, err := strconv.ParseFloat(dbTransaction.Amount, 64)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
-		return
-	}
+	// dbAmountFloat, err := strconv.ParseFloat(dbTransaction.Amount, 64)
+	// if err != nil {
+	// 	respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
+	// 	return
+	// }
 
 	respondWithJSON(w, http.StatusCreated, response{
 		Transaction: Transaction{
 			ID:            dbTransaction.ID,
-			Amount:        dbAmountFloat,
+			Amount:        dbTransaction.Amount,
 			TxDescription: dbTransaction.TxDescription,
 			TxDate:        dbTransaction.TxDate,
 			CreatedAt:     dbTransaction.CreatedAt,
@@ -104,12 +103,12 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Amount        float64   `json:"amount"`
-		TxDescription string    `json:"tx_description"`
-		TxDate        time.Time `json:"tx_date"`
-		Posted        bool      `json:"posted"`
-		AccountID     uuid.UUID `json:"account_id"`
-		CategoryID    uuid.UUID `json:"category_id"`
+		Amount        decimal.Decimal `json:"amount"`
+		TxDescription string          `json:"tx_description"`
+		TxDate        time.Time       `json:"tx_date"`
+		Posted        bool            `json:"posted"`
+		AccountID     uuid.UUID       `json:"account_id"`
+		CategoryID    uuid.UUID       `json:"category_id"`
 	}
 
 	type response struct {
@@ -146,7 +145,7 @@ func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if params.Amount == 0 || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
+	if params.Amount.Equal(decimal.NewFromInt(0)) || params.TxDescription == "" || params.TxDate.IsZero() || params.AccountID == uuid.Nil {
 		respondWithError(w, http.StatusBadRequest, "Missing amount, description, date, and/or account", errors.New("invalid parameters"))
 		return
 	}
@@ -162,7 +161,7 @@ func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request
 
 	updatedTransaction, err := cfg.db.UpdateTransaction(req.Context(), database.UpdateTransactionParams{
 		ID:            transactionID,
-		Amount:        strconv.FormatFloat(params.Amount, 'f', 2, 64),
+		Amount:        params.Amount,
 		TxDescription: params.TxDescription,
 		TxDate:        params.TxDate,
 		Posted:        params.Posted,
@@ -174,16 +173,16 @@ func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	updatedAmountFloat, err := strconv.ParseFloat(updatedTransaction.Amount, 64)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
-		return
-	}
+	// updatedAmountFloat, err := strconv.ParseFloat(updatedTransaction.Amount, 64)
+	// if err != nil {
+	// 	respondWithError(w, http.StatusInternalServerError, "Couldn't parse amount", err)
+	// 	return
+	// }
 
 	respondWithJSON(w, http.StatusOK, response{
 		Transaction: Transaction{
 			ID:            updatedTransaction.ID,
-			Amount:        updatedAmountFloat,
+			Amount:        updatedTransaction.Amount,
 			TxDescription: updatedTransaction.TxDescription,
 			TxDate:        updatedTransaction.TxDate,
 			Posted:        updatedTransaction.Posted,
@@ -258,14 +257,14 @@ func (cfg *apiConfig) getAccountTransactions(w http.ResponseWriter, req *http.Re
 
 	transactions := []Transaction{}
 	for _, transaction := range dbTransactions {
-		amountFloat, err := strconv.ParseFloat(transaction.Amount, 64)
-		if err != nil {
-			log.Printf("Error parsing transaction amount: %v", transaction.ID)
-			continue
-		}
+		// amountFloat, err := strconv.ParseFloat(transaction.Amount, 64)
+		// if err != nil {
+		// 	log.Printf("Error parsing transaction amount: %v", transaction.ID)
+		// 	continue
+		// }
 		transactions = append(transactions, Transaction{
 			ID:            transaction.ID,
-			Amount:        amountFloat,
+			Amount:        transaction.Amount,
 			TxDescription: transaction.TxDescription,
 			TxDate:        transaction.TxDate,
 			CreatedAt:     transaction.CreatedAt,
