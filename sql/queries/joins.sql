@@ -18,3 +18,15 @@ SELECT accounts.user_id AS user_id FROM transactions
 INNER JOIN accounts
 ON accounts.id = transactions.account_id
 WHERE transactions.id = $1;
+
+-- name: GetUserTransactions :many
+SELECT transactions.*,
+accounts.account_name,
+categories.category_name
+FROM transactions
+INNER JOIN accounts
+ON accounts.id = transactions.account_id
+INNER JOIN categories
+ON categories.id = transactions.category_id
+WHERE accounts.user_id = $1
+ORDER BY transactions.tx_date DESC;

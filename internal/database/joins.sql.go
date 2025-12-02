@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 const getAccountBalance = `-- name: GetAccountBalance :one
@@ -77,6 +78,68 @@ func (q *Queries) GetUserAccountsBalances(ctx context.Context, userID uuid.UUID)
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.AccountBalanceCents,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserTransactions = `-- name: GetUserTransactions :many
+SELECT transactions.id, transactions.amount, transactions.tx_description, transactions.tx_date, transactions.created_at, transactions.updated_at, transactions.posted, transactions.account_id, transactions.category_id,
+accounts.account_name,
+categories.category_name
+FROM transactions
+INNER JOIN accounts
+ON accounts.id = transactions.account_id
+INNER JOIN categories
+ON categories.id = transactions.category_id
+WHERE accounts.user_id = $1
+ORDER BY transactions.tx_date DESC
+`
+
+type GetUserTransactionsRow struct {
+	ID            uuid.UUID
+	Amount        decimal.Decimal
+	TxDescription string
+	TxDate        time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Posted        bool
+	AccountID     uuid.UUID
+	CategoryID    uuid.NullUUID
+	AccountName   string
+	CategoryName  string
+}
+
+func (q *Queries) GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]GetUserTransactionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserTransactions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserTransactionsRow
+	for rows.Next() {
+		var i GetUserTransactionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.TxDescription,
+			&i.TxDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Posted,
+			&i.AccountID,
+			&i.CategoryID,
+			&i.AccountName,
+			&i.CategoryName,
 		); err != nil {
 			return nil, err
 		}

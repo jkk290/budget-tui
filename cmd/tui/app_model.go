@@ -47,8 +47,9 @@ type model struct {
 	loginUsername textinput.Model
 	loginPassword textinput.Model
 
-	client      *Client
-	accountsAPI AccountsAPI
+	client          *Client
+	accountsAPI     AccountsAPI
+	transactionsAPI TransactionsAPI
 
 	navItems  []string
 	navCursor int
@@ -57,8 +58,8 @@ type model struct {
 
 	// budgetModel budgetModel
 	// categoriesModel categoriesModel
-	accountsModel accountsModel
-	// transactionsModel transactionsModel
+	accountsModel     accountsModel
+	transactionsModel transactionsModel
 
 	focus focus
 }
@@ -79,11 +80,13 @@ func initialModel(client *Client) model {
 		loginUsername: username,
 		loginPassword: password,
 
-		navItems:       []string{"Budget", "Categories", "Accounts", "Transactions"},
-		navCursor:      0,
-		currentSection: sectionBudget,
-		accountsModel:  initialAccountModel(),
-		accountsAPI:    client.Accounts(),
+		navItems:          []string{"Budget", "Categories", "Accounts", "Transactions"},
+		navCursor:         0,
+		currentSection:    sectionBudget,
+		accountsModel:     initialAccountModel(),
+		accountsAPI:       client.Accounts(),
+		transactionsModel: initialTransactionsModel(),
+		transactionsAPI:   client.Transactions(),
 	}
 }
 
@@ -116,6 +119,16 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.accountsModel.accounts = msg.accounts
 		m.accountsModel.cursor = 0
 		return m, nil
+
+	case transactionsLoadedMsg:
+		if msg.err != nil {
+			// implement error message
+			// m.transactionsModel.err = msg.err
+			return m, nil
+		}
+
+		m.transactionsModel.transactions = msg.transactions
+		m.transactionsModel.cursor = 0
 
 	case tea.KeyMsg:
 		key := msg.String()
@@ -157,6 +170,9 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case sectionBudget:
 			case sectionCategories:
 			case sectionTransactions:
+				var cmd tea.Cmd
+				m.transactionsModel, cmd = m.transactionsModel.Update(msg)
+				return m, cmd
 			default:
 				return m, nil
 			}
@@ -192,7 +208,7 @@ func (m model) mainView() string {
 	case sectionAccounts:
 		main = m.accountsModel.View()
 	case sectionTransactions:
-		main = "Transactions View\n"
+		main = m.transactionsModel.View()
 	}
 
 	return sidebar + "\n---\n\n" + main

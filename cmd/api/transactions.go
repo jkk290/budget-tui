@@ -101,6 +101,52 @@ func (cfg *apiConfig) addTransaction(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (cfg *apiConfig) getUserTransactions(w http.ResponseWriter, req *http.Request) {
+	type userTransaction struct {
+		ID            uuid.UUID       `json:"id"`
+		Amount        decimal.Decimal `json:"amount"`
+		TxDescription string          `json:"tx_description"`
+		TxDate        time.Time       `json:"tx_date"`
+		CreatedAt     time.Time       `json:"created_at"`
+		UpdatedAt     time.Time       `json:"updated_at"`
+		Posted        bool            `json:"posted"`
+		AccountID     uuid.UUID       `json:"account_id"`
+		CategoryID    uuid.UUID       `json:"category_id"`
+		AccountName   string          `json:"account_name"`
+		CategoryName  string          `json:"category_name"`
+	}
+
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	dbTransactions, err := cfg.db.GetUserTransactions(req.Context(), userID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get user transactions", err)
+	}
+
+	var transactions []userTransaction
+	for _, tx := range dbTransactions {
+		transactions = append(transactions, userTransaction{
+			ID:            tx.ID,
+			Amount:        tx.Amount,
+			TxDescription: tx.TxDescription,
+			TxDate:        tx.TxDate,
+			CreatedAt:     tx.CreatedAt,
+			UpdatedAt:     tx.UpdatedAt,
+			Posted:        tx.Posted,
+			AccountID:     tx.AccountID,
+			CategoryID:    tx.CategoryID.UUID,
+			AccountName:   tx.AccountName,
+			CategoryName:  tx.CategoryName,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, transactions)
+}
+
 func (cfg *apiConfig) updateTransaction(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Amount        decimal.Decimal `json:"amount"`
