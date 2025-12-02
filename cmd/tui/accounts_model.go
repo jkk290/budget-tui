@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type accountsMode int
@@ -33,12 +34,13 @@ const (
 )
 
 type Account struct {
-	Id          uuid.UUID `json:"id"`
-	AccountName string    `json:"account_name"`
-	AccountType string    `json:"account_type"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	UserID      uuid.UUID `json:"user_id"`
+	Id             uuid.UUID       `json:"id"`
+	AccountName    string          `json:"account_name"`
+	AccountType    string          `json:"account_type"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	UserID         uuid.UUID       `json:"user_id"`
+	AccountBalance decimal.Decimal `json:"account_balance"`
 }
 
 type accountsModel struct {
@@ -277,16 +279,17 @@ func (m accountsModel) View() string {
 				cursor = ">"
 			}
 
-			s += fmt.Sprintf("%s %s\n", cursor, account.AccountName)
+			s += fmt.Sprintf("%s %s\n  - $%s\n\n", cursor, account.AccountName, account.AccountBalance.String())
 		}
 		s += "\n(Use 'j'/'k' to move, 'enter' to view details, 'n' to create new account, 'd' to delete account)\n"
 		return s
 	case accountsModeDetails:
 		acc := m.accounts[m.cursor]
 		return fmt.Sprintf(
-			"Account Details\n\nName: %s\nType: %s\n\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n",
+			"Account Details\n\nName: %s\nType: %s\nBalance: $%s\n\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n",
 			acc.AccountName,
 			acc.AccountType,
+			acc.AccountBalance.String(),
 		)
 	case accountsModeFormNew:
 		s := "New Account\n\n"
