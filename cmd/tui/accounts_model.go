@@ -87,6 +87,32 @@ func initialAccountModel() accountsModel {
 
 func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case accountsCreatedMsg:
+		if msg.err != nil {
+			// implement error message
+			// m.accountErr = msg.err
+			return m, nil
+		}
+		m.accounts = append(m.accounts, msg.account)
+		m.mode = accountsModeList
+		return m, nil
+
+	case accountUpdatedMsg:
+		if msg.err != nil {
+			// implement error message
+			// m.accountErr = msg.err
+			return m, nil
+		}
+
+		for i, account := range m.accounts {
+			if account.Id == msg.account.Id {
+				m.accounts[i] = msg.account
+				break
+			}
+		}
+		m.mode = accountsModeList
+		return m, nil
+
 	case tea.KeyMsg:
 		key := msg.String()
 
