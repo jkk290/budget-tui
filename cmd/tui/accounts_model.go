@@ -90,7 +90,7 @@ func initialAccountModel() accountsModel {
 
 func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case accountsCreatedMsg:
+	case accountCreatedMsg:
 		if msg.err != nil {
 			m.errorMsg = msg.err.Error()
 			return m, nil
@@ -245,8 +245,9 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 						balance := m.balanceInput.Value()
 						return m, submitNewAccountMsg(name, accountType, balance)
 					case accountsModeFormEdit:
-						m.accounts[m.cursor].AccountName = m.nameInput.Value()
-						m.mode = accountsModeList
+						id := m.accounts[m.cursor].Id
+						name := m.nameInput.Value()
+						return m, submitUpdateAccountMsg(id, name)
 					}
 				}
 			default:
@@ -359,6 +360,8 @@ func (m accountsModel) View() string {
 		return s
 	case accountsModeFormEdit:
 		s := "Edit Account\n\n"
+
+		s += m.errorView()
 
 		currentRow := func(field int) string {
 			if m.formFieldCursor == field {

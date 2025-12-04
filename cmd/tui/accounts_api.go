@@ -14,7 +14,7 @@ import (
 type AccountsAPI interface {
 	ListAccounts(ctx context.Context) ([]Account, error)
 	CreateAccount(ctx context.Context, req CreateAccountRequest) (Account, error)
-	// UpdateAccount(ctx context.Context, id uuid.UUID, req UpdateAccountRequest) (Account, error)
+	UpdateAccount(ctx context.Context, id uuid.UUID, req UpdateAccountRequest) (Account, error)
 	// DeleteAccount(ctx context.Context, id uuid.UUID) error
 }
 
@@ -32,13 +32,13 @@ func (a *accountsClient) ListAccounts(ctx context.Context) ([]Account, error) {
 		return nil, err
 	}
 
-	resp, err := a.client.httpClient.Do(req)
+	res, err := a.client.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 	var accounts []Account
-	if err := json.NewDecoder(resp.Body).Decode(&accounts); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&accounts); err != nil {
 		return nil, err
 	}
 
@@ -48,6 +48,17 @@ func (a *accountsClient) ListAccounts(ctx context.Context) ([]Account, error) {
 type accountsLoadedMsg struct {
 	accounts []Account
 	err      error
+}
+
+func loadAccountsCmd(api AccountsAPI) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.TODO()
+		accounts, err := api.ListAccounts(ctx)
+		return accountsLoadedMsg{
+			accounts: accounts,
+			err:      err,
+		}
+	}
 }
 
 type CreateAccountRequest struct {
@@ -62,22 +73,38 @@ func (a *accountsClient) CreateAccount(ctx context.Context, req CreateAccountReq
 		return Account{}, err
 	}
 
-	resp, err := a.client.httpClient.Do(httpReq)
+	res, err := a.client.httpClient.Do(httpReq)
 	if err != nil {
 		return Account{}, err
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return Account{}, fmt.Errorf("Failed creating account: %s", resp.Status)
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
+		return Account{}, fmt.Errorf("Failed creating account: %s", res.Status)
 	}
 
 	var account Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&account); err != nil {
 		return Account{}, err
 	}
 
 	return account, nil
+}
+
+type accountCreatedMsg struct {
+	account Account
+	err     error
+}
+
+func createAccountCmd(api AccountsAPI, req CreateAccountRequest) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		account, err := api.CreateAccount(ctx, req)
+		return accountCreatedMsg{
+			account: account,
+			err:     err,
+		}
+	}
 }
 
 type accountCreateSubmittedMsg struct {
@@ -100,9 +127,28 @@ type UpdateAccountRequest struct {
 	AccountName string `json:"account_name"`
 }
 
-type accountsCreatedMsg struct {
-	account Account
-	err     error
+func (a *accountsClient) UpdateAccount(ctx context.Context, Id uuid.UUID, req UpdateAccountRequest) (Account, error) {
+	httpReq, err := a.client.newJSONRequest(ctx, http.MethodPut, "/accounts/"+Id.String(), req)
+	if err != nil {
+		return Account{}, err
+	}
+
+	res, err := a.client.httpClient.Do(httpReq)
+	if err != nil {
+		return Account{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return Account{}, fmt.Errorf("Failed updating account: %s", res.Status)
+	}
+
+	var account Account
+	if err := json.NewDecoder(res.Body).Decode(&account); err != nil {
+		return Account{}, err
+	}
+
+	return account, nil
 }
 
 type accountUpdatedMsg struct {
@@ -110,31 +156,34 @@ type accountUpdatedMsg struct {
 	err     error
 }
 
-type accountDeleteMsg struct {
-	accountID uuid.UUID
-	err       error
-}
-
-func loadAccountsCmd(api AccountsAPI) tea.Cmd {
-	return func() tea.Msg {
-		ctx := context.TODO()
-		accounts, err := api.ListAccounts(ctx)
-		return accountsLoadedMsg{
-			accounts: accounts,
-			err:      err,
-		}
-	}
-}
-
-func createAccountCmd(api AccountsAPI, req CreateAccountRequest) tea.Cmd {
+func updateAccountCmd(api AccountsAPI, Id uuid.UUID, req UpdateAccountRequest) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		account, err := api.CreateAccount(ctx, req)
-		return accountsCreatedMsg{
+		account, err := api.UpdateAccount(ctx, Id, req)
+		return accountUpdatedMsg{
 			account: account,
 			err:     err,
 		}
 	}
+}
+
+type accountUpdatedSubmittedMsg struct {
+	AccountId uuid.UUID
+	Name      string
+}
+
+func submitUpdateAccountMsg(Id uuid.UUID, name string) tea.Cmd {
+	return func() tea.Msg {
+		return accountUpdatedSubmittedMsg{
+			AccountId: Id,
+			Name:      name,
+		}
+	}
+}
+
+type accountDeleteMsg struct {
+	accountID uuid.UUID
+	err       error
 }
 
 // func updateAccountCmd(api AccountsAPI, id uuid.UUID, req UpdateAccountRequest) tea.Cmd {

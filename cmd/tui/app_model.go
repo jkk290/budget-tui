@@ -139,7 +139,7 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)
 		if err != nil {
 			var cmd tea.Cmd
-			m.accountsModel, cmd = m.accountsModel.Update(accountsCreatedMsg{
+			m.accountsModel, cmd = m.accountsModel.Update(accountCreatedMsg{
 				err: fmt.Errorf("invalid balance: %w", err),
 			})
 			return m, cmd
@@ -153,7 +153,19 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, createAccountCmd(m.accountsAPI, req)
 
-	case accountsCreatedMsg:
+	case accountCreatedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	case accountUpdatedSubmittedMsg:
+		req := UpdateAccountRequest{
+			AccountName: msg.Name,
+		}
+
+		return m, updateAccountCmd(m.accountsAPI, msg.AccountId, req)
+
+	case accountUpdatedMsg:
 		var cmd tea.Cmd
 		m.accountsModel, cmd = m.accountsModel.Update(msg)
 		return m, cmd
