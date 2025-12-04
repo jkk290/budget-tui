@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/shopspring/decimal"
 )
 
 type screen int
@@ -111,9 +112,11 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case accountsLoadedMsg:
 		if msg.err != nil {
-			// implement error message
-			// m.accountsModel.err = msg.err
-			return m, nil
+			var cmd tea.Cmd
+			m.accountsModel, cmd = m.accountsModel.Update(accountsLoadedMsg{
+				err: msg.err,
+			})
+			return m, cmd
 		}
 
 		m.accountsModel.accounts = msg.accounts
@@ -122,13 +125,38 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case transactionsLoadedMsg:
 		if msg.err != nil {
-			// implement error message
-			// m.transactionsModel.err = msg.err
-			return m, nil
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionsLoadedMsg{
+				err: msg.err,
+			})
+			return m, cmd
 		}
 
 		m.transactionsModel.transactions = msg.transactions
 		m.transactionsModel.cursor = 0
+
+	case accountCreateSubmittedMsg:
+		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)
+		if err != nil {
+			var cmd tea.Cmd
+			m.accountsModel, cmd = m.accountsModel.Update(accountsCreatedMsg{
+				err: fmt.Errorf("invalid balance: %w", err),
+			})
+			return m, cmd
+		}
+
+		req := CreateAccountRequest{
+			AccountName:    msg.Name,
+			AccountType:    msg.Type,
+			InitialBalance: balanceDecimal,
+		}
+
+		return m, createAccountCmd(m.accountsAPI, req)
+
+	case accountsCreatedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
 
 	case tea.KeyMsg:
 		key := msg.String()

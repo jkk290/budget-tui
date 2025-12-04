@@ -55,6 +55,8 @@ type accountsModel struct {
 	formTypeIndex   int
 
 	confirmCursor int
+
+	errorMsg string
 }
 
 var accountTypes = []string{
@@ -82,6 +84,7 @@ func initialAccountModel() accountsModel {
 		balanceInput:    balance,
 		formTypeIndex:   0,
 		confirmCursor:   confirmCancel,
+		errorMsg:        "",
 	}
 }
 
@@ -89,18 +92,17 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case accountsCreatedMsg:
 		if msg.err != nil {
-			// implement error message
-			// m.accountErr = msg.err
+			m.errorMsg = msg.err.Error()
 			return m, nil
 		}
+		m.errorMsg = ""
 		m.accounts = append(m.accounts, msg.account)
 		m.mode = accountsModeList
 		return m, nil
 
 	case accountUpdatedMsg:
 		if msg.err != nil {
-			// implement error message
-			// m.accountErr = msg.err
+			m.errorMsg = msg.err.Error()
 			return m, nil
 		}
 
@@ -111,6 +113,21 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			}
 		}
 		m.mode = accountsModeList
+		return m, nil
+
+	case accountDeleteMsg:
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			return m, nil
+		}
+
+		filtered := m.accounts[:0]
+		for _, account := range m.accounts {
+			if account.Id != msg.accountID {
+				filtered = append(filtered, account)
+			}
+		}
+		m.accounts = filtered
 		return m, nil
 
 	case tea.KeyMsg:
@@ -142,6 +159,7 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				m.balanceInput.Blur()
 
 				m.formTypeIndex = 0
+				m.errorMsg = ""
 			case "d":
 				if len(m.accounts) > 0 {
 					m.mode = accountsModeDelete
@@ -188,6 +206,7 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			switch key {
 			case "esc":
 				m.mode = accountsModeList
+				m.errorMsg = ""
 				return m, nil
 			case "up", "k":
 				if m.formFieldCursor > formFieldName {
@@ -221,12 +240,10 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 				case formFieldSave:
 					switch m.mode {
 					case accountsModeFormNew:
-						newAccount := Account{
-							AccountName: m.nameInput.Value(),
-							AccountType: accountTypes[m.formTypeIndex],
-						}
-						m.accounts = append(m.accounts, newAccount)
-						m.mode = accountsModeList
+						name := m.nameInput.Value()
+						accountType := accountTypes[m.formTypeIndex]
+						balance := m.balanceInput.Value()
+						return m, submitNewAccountMsg(name, accountType, balance)
 					case accountsModeFormEdit:
 						m.accounts[m.cursor].AccountName = m.nameInput.Value()
 						m.mode = accountsModeList
@@ -299,6 +316,9 @@ func (m accountsModel) View() string {
 	switch m.mode {
 	case accountsModeList:
 		s := "Accounts\n\n"
+
+		s += m.errorView()
+
 		for i, account := range m.accounts {
 			cursor := " "
 			if m.cursor == i {
@@ -319,6 +339,8 @@ func (m accountsModel) View() string {
 		)
 	case accountsModeFormNew:
 		s := "New Account\n\n"
+
+		s += m.errorView()
 
 		currentRow := func(field int) string {
 			if m.formFieldCursor == field {
@@ -374,4 +396,11 @@ func (m accountsModel) View() string {
 	}
 
 	return "Unknown accounts mode\n"
+}
+
+func (m accountsModel) errorView() string {
+	if m.errorMsg == "" {
+		return ""
+	}
+	return fmt.Sprintf("Error: %s\n\n", m.errorMsg)
 }
