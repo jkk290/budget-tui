@@ -96,26 +96,22 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			return m, nil
 		}
 		m.errorMsg = ""
-		m.accounts = append(m.accounts, msg.account)
 		m.mode = accountsModeList
-		return m, nil
+		return m, func() tea.Msg {
+			return accountsReloadRequestedMsg{}
+		}
 
 	case accountUpdatedMsg:
 		if msg.err != nil {
 			m.errorMsg = msg.err.Error()
 			return m, nil
 		}
-
-		for i, account := range m.accounts {
-			if account.Id == msg.account.Id {
-				m.accounts[i] = msg.account
-				break
-			}
-		}
 		m.mode = accountsModeList
-		return m, nil
+		return m, func() tea.Msg {
+			return accountsReloadRequestedMsg{}
+		}
 
-	case accountDeleteMsg:
+	case accountDeletedMsg:
 		if msg.err != nil {
 			m.errorMsg = msg.err.Error()
 			return m, nil
@@ -128,6 +124,19 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			}
 		}
 		m.accounts = filtered
+
+		if len(m.accounts) == 1 {
+			m.cursor = 0
+			m.mode = accountsModeList
+		} else {
+			prevCursor := m.cursor
+			if prevCursor >= len(m.accounts) {
+				m.cursor = len(m.accounts) - 1
+			} else {
+				m.cursor = prevCursor
+			}
+			m.mode = accountsModeList
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -290,20 +299,7 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			case "enter":
 				switch m.confirmCursor {
 				case confirmYes:
-					if len(m.accounts) == 1 {
-						m.accounts = []Account{}
-						m.cursor = 0
-						m.mode = accountsModeList
-					} else {
-						prevCursor := m.cursor
-						m.accounts = append(m.accounts[:m.cursor], m.accounts[m.cursor+1:]...)
-						if prevCursor >= len(m.accounts) {
-							m.cursor = len(m.accounts) - 1
-						} else {
-							m.cursor = prevCursor
-						}
-						m.mode = accountsModeList
-					}
+					return m, submitDeleteAccountMsg(m.accounts[m.cursor].Id)
 				case confirmCancel:
 					m.mode = accountsModeList
 				}
@@ -372,7 +368,6 @@ func (m accountsModel) View() string {
 
 		s += fmt.Sprintf("%s Name: %s\n", currentRow(formFieldName), m.nameInput.View())
 		s += fmt.Sprintf("%s Type: %s\n", currentRow(formFieldType), accountTypes[m.formTypeIndex])
-		// s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
 		s += "\n"
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
 		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"

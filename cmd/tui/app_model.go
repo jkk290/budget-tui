@@ -110,6 +110,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	case accountsReloadRequestedMsg:
+		cmd := loadAccountsCmd(m.accountsAPI)
+		return m, cmd
+
 	case accountsLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -166,6 +170,14 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, updateAccountCmd(m.accountsAPI, msg.AccountId, req)
 
 	case accountUpdatedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	case accountDeleteSubmittedMsg:
+		return m, deleteAccountCmd(m.accountsAPI, msg.AccountId)
+
+	case accountDeletedMsg:
 		var cmd tea.Cmd
 		m.accountsModel, cmd = m.accountsModel.Update(msg)
 		return m, cmd

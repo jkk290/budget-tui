@@ -15,7 +15,7 @@ type AccountsAPI interface {
 	ListAccounts(ctx context.Context) ([]Account, error)
 	CreateAccount(ctx context.Context, req CreateAccountRequest) (Account, error)
 	UpdateAccount(ctx context.Context, id uuid.UUID, req UpdateAccountRequest) (Account, error)
-	// DeleteAccount(ctx context.Context, id uuid.UUID) error
+	DeleteAccount(ctx context.Context, id uuid.UUID) error
 }
 
 type accountsClient struct {
@@ -181,29 +181,51 @@ func submitUpdateAccountMsg(Id uuid.UUID, name string) tea.Cmd {
 	}
 }
 
-type accountDeleteMsg struct {
+func (a *accountsClient) DeleteAccount(ctx context.Context, Id uuid.UUID) error {
+	req, err := a.client.newRequest(ctx, http.MethodDelete, "/accounts/"+Id.String(), nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := a.client.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed deleting account: %s", res.Status)
+	}
+
+	return nil
+}
+
+type accountDeletedMsg struct {
 	accountID uuid.UUID
 	err       error
 }
 
-// func updateAccountCmd(api AccountsAPI, id uuid.UUID, req UpdateAccountRequest) tea.Cmd {
-// 	return func() tea.Msg {
-// 		ctx := context.Background()
-// 		account, err := api.UpdateAccount(ctx, id, req)
-// 		return accountUpdatedMsg{
-// 			account: account,
-// 			err:     err,
-// 		}
-// 	}
-// }
+func deleteAccountCmd(api AccountsAPI, id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		err := api.DeleteAccount(ctx, id)
+		return accountDeletedMsg{
+			accountID: id,
+			err:       err,
+		}
+	}
+}
 
-// func deleteAccountCmd(api AccountsAPI, id uuid.UUID) tea.Cmd {
-// 	return func() tea.Msg {
-// 		ctx := context.Background()
-// 		err := api.DeleteAccount(ctx, id)
-// 		return accountDeleteMsg{
-// 			accountID: id,
-// 			err:       err,
-// 		}
-// 	}
-// }
+type accountDeleteSubmittedMsg struct {
+	AccountId uuid.UUID
+}
+
+func submitDeleteAccountMsg(Id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return accountDeleteSubmittedMsg{
+			AccountId: Id,
+		}
+	}
+}
+
+type accountsReloadRequestedMsg struct{}
