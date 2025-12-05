@@ -44,7 +44,9 @@ type Transaction struct {
 	UpdatedAt     time.Time       `json:"updated_at"`
 	Posted        bool            `json:"posted"`
 	AccountID     uuid.UUID       `json:"account_id"`
+	AccountName   string          `json:"account_name"`
 	CategoryID    uuid.UUID       `json:"category_id"`
+	CategoryName  string          `json:"category_name"`
 }
 
 type transactionsModel struct {
@@ -116,8 +118,15 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 				if m.cursor < len(m.transactions)-1 {
 					m.cursor++
 				}
-				// case "enter":
-				// 	m.mode = transactionsModeDetails
+			case "enter":
+				m.mode = transactionsModeDetails
+			}
+		case transactionsModeDetails:
+			switch key {
+			case "esc":
+				m.mode = transactionsModeList
+			case "e":
+			case "d":
 			}
 		}
 	}
@@ -137,6 +146,19 @@ func (m transactionsModel) View() string {
 			s += fmt.Sprintf("%s %v | %s | %s\n", cursor, transaction.TxDate, transaction.TxDescription, transaction.Amount)
 		}
 		s += "\n(Use 'j'/'k' to move, 'enter' to view details, 'n' to create a new transaction, 'd' to delete transaction)\n"
+		return s
+	case transactionsModeDetails:
+		tx := m.transactions[m.cursor]
+		s := "Transaction Details\n\n"
+		s += fmt.Sprintf("Amount: %s\n", tx.Amount.String())
+		s += fmt.Sprintf("Description: %s\n", tx.TxDescription)
+		s += fmt.Sprintf("Date: %s\n", tx.TxDate.String())
+		s += fmt.Sprintf("Posted: %v\n", tx.Posted)
+		s += fmt.Sprintf("Account: %s\n", tx.AccountName)
+		s += fmt.Sprintf("Category: %s\n\n", tx.CategoryName)
+
+		s += "(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
+
 		return s
 	}
 
