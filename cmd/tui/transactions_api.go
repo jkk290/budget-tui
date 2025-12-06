@@ -60,6 +60,8 @@ func loadTransactionsCmd(api TransactionsAPI) tea.Cmd {
 	}
 }
 
+type transactionsNewRequestedMsg struct{}
+
 type CreateTransactionRequest struct {
 	Amount        decimal.Decimal `json:"amount"`
 	TxDescription string          `json:"tx_description"`

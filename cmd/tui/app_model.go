@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -51,6 +53,7 @@ type model struct {
 	client          *Client
 	accountsAPI     AccountsAPI
 	transactionsAPI TransactionsAPI
+	categoriesAPI   CategoriesAPI
 
 	navItems  []string
 	navCursor int
@@ -58,7 +61,7 @@ type model struct {
 	currentSection section
 
 	// budgetModel budgetModel
-	// categoriesModel categoriesModel
+	categoriesModel   categoriesModel
 	accountsModel     accountsModel
 	transactionsModel transactionsModel
 
@@ -88,6 +91,8 @@ func initialModel(client *Client) model {
 		accountsAPI:       client.Accounts(),
 		transactionsModel: initialTransactionsModel(),
 		transactionsAPI:   client.Transactions(),
+		categoriesModel:   initialCategoriesModel(),
+		categoriesAPI:     client.Categories(),
 	}
 }
 
@@ -138,6 +143,79 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.transactionsModel.transactions = msg.transactions
 		m.transactionsModel.cursor = 0
+		return m, nil
+
+	case transactionsNewRequestedMsg:
+		accountOptions := make([]txAccountOption, len(m.accountsModel.accounts))
+		for i, account := range m.accountsModel.accounts {
+			accountOptions[i] = txAccountOption{
+				ID:   account.Id,
+				Name: account.AccountName,
+			}
+		}
+
+		categoryOptions := make([]txCategoryOption, len(m.categoriesModel.categories))
+		for i, category := range m.categoriesModel.categories {
+			categoryOptions[i] = txCategoryOption{
+				ID:   category.ID,
+				Name: category.CategoryName,
+			}
+		}
+
+		tm := m.transactionsModel
+		tm.accountOptions = accountOptions
+		tm.categoryOptions = categoryOptions
+		m.transactionsModel = tm
+		return m, nil
+
+	case transactionCreateSubmittedMsg:
+		amountDecimal, err := decimal.NewFromString(msg.AmountText)
+		if err != nil {
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionCreatedMsg{
+				err: fmt.Errorf("invalid amount: %w", err),
+			})
+			return m, cmd
+		}
+		txDateTime, err := time.Parse(time.DateTime, msg.TxDate)
+		if err != nil {
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionCreatedMsg{
+				err: fmt.Errorf("invalid date: %w", err),
+			})
+			return m, cmd
+		}
+		accountID, err := uuid.Parse(msg.AccountID)
+		if err != nil {
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionCreatedMsg{
+				err: fmt.Errorf("invalid account ID: %w", err),
+			})
+			return m, cmd
+		}
+		categoryID, err := uuid.Parse(msg.CategoryID)
+		if err != nil {
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionCreatedMsg{
+				err: fmt.Errorf("invalid category ID: %w", err),
+			})
+			return m, cmd
+		}
+
+		req := CreateTransactionRequest{
+			Amount:        amountDecimal,
+			TxDescription: msg.TxDescription,
+			TxDate:        txDateTime,
+			Posted:        msg.Posted,
+			AccountID:     accountID,
+			CategoryID:    categoryID,
+		}
+		return m, createTransactionCmd(m.transactionsAPI, req)
+
+	case transactionCreatedMsg:
+		var cmd tea.Cmd
+		m.transactionsModel, cmd = m.transactionsModel.Update(msg)
+		return m, cmd
 
 	case accountCreateSubmittedMsg:
 		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)

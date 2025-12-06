@@ -49,6 +49,16 @@ type Transaction struct {
 	CategoryName  string          `json:"category_name"`
 }
 
+type txAccountOption struct {
+	ID   uuid.UUID
+	Name string
+}
+
+type txCategoryOption struct {
+	ID   uuid.UUID
+	Name string
+}
+
 type transactionsModel struct {
 	mode         transactionsMode
 	transactions []Transaction
@@ -62,16 +72,11 @@ type transactionsModel struct {
 	formPostedIndex   int
 	formAccountIndex  int
 	formCategoryIndex int
+	accountOptions    []txAccountOption
+	categoryOptions   []txCategoryOption
 
 	confirmCursor int
-}
-
-var accountNames = []string{
-	// api to get list of users accounts' names
-}
-
-var categoryNames = []string{
-	// api to get list of users categories' names
+	errorMsg      string
 }
 
 func initialTransactionsModel() transactionsModel {
@@ -98,6 +103,8 @@ func initialTransactionsModel() transactionsModel {
 		formPostedIndex:   0,
 		formAccountIndex:  0,
 		formCategoryIndex: 0,
+		accountOptions:    []txAccountOption{},
+		categoryOptions:   []txCategoryOption{},
 		confirmCursor:     txConfirmCancel,
 	}
 }
@@ -117,6 +124,11 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 			case "down", "j":
 				if m.cursor < len(m.transactions)-1 {
 					m.cursor++
+				}
+			case "n":
+				m.mode = transactionsModeFormNew
+				return m, func() tea.Msg {
+					return transactionsNewRequestedMsg{}
 				}
 			case "enter":
 				m.mode = transactionsModeDetails
@@ -159,6 +171,29 @@ func (m transactionsModel) View() string {
 
 		s += "(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
 
+		return s
+	case transactionsModeFormNew:
+		s := "New Category\n\n"
+	
+		s += m.errorView()
+	
+		currentRow := func(field int) string {
+			if m.formFieldCursor == field {
+				return ">"
+			}
+			return " "
+		}
+	
+		s += fmt.Sprintf("%s Amount: %s\n", currentRow(txFormFieldAmount), m.amountInput.View())
+		s += fmt.Sprintf("%s Description: %s\n", currentRow(txFormFieldDescription), m.descriptionInput.View())
+		
+		s += fmt.Sprintf("%s Account ('h'/'l' to change): %s\n", currentRow(txFormFieldAccount), m.accountOptions[m.formAccountIndex])
+		s += fmt.Sprintf("%s Category ('h'/'l' to change): %s\n", currentRow(txFormFieldCategory), m.categoryOptions[m.formCategoryIndex])
+		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
+		s += "\n"
+		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
+		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"
+	
 		return s
 	}
 

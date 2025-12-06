@@ -104,9 +104,11 @@ func (m model) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.client.SetJWT(m.jwt)
 		m.accountsAPI = m.client.Accounts()
 		m.transactionsAPI = m.client.Transactions()
+		m.categoriesAPI = m.client.Categories()
 		var cmds []tea.Cmd
 		cmds = append(cmds, loadAccountsCmd(m.accountsAPI))
 		cmds = append(cmds, loadTransactionsCmd(m.transactionsAPI))
+		cmds = append(cmds, loadCategoriesCmd(m.categoriesAPI))
 
 		m.screen = screenMain
 		return m, tea.Batch(cmds...)
