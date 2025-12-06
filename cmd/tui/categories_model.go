@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -25,4 +26,8 @@ func initialCategoriesModel() categoriesModel {
 	return categoriesModel{
 		categories: []Category{},
 	}
+}
+
+func (m categoriesModel) Update(msg tea.Msg) (categoriesModel, tea.Cmd) {
+	return m, nil
 }

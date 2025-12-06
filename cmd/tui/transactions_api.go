@@ -132,3 +132,5 @@ func submitNewTransactionMsg(amountText, txDescription, txDate, accountID, categ
 		}
 	}
 }
+
+type transactionsReloadRequestedMsg struct{}

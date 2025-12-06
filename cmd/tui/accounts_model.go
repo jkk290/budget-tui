@@ -402,3 +402,7 @@ func (m accountsModel) errorView() string {
 	}
 	return fmt.Sprintf("Error: %s\n\n", m.errorMsg)
 }
+
+func (m accountsModel) IsEditing() bool {
+	return m.formEditing
+}

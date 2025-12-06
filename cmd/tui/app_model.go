@@ -119,6 +119,10 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := loadAccountsCmd(m.accountsAPI)
 		return m, cmd
 
+	case transactionsReloadRequestedMsg:
+		cmd := loadTransactionsCmd(m.transactionsAPI)
+		return m, cmd
+
 	case accountsLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -130,6 +134,18 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.accountsModel.accounts = msg.accounts
 		m.accountsModel.cursor = 0
+		return m, nil
+
+	case categoriesLoadedMsg:
+		if msg.err != nil {
+			var cmd tea.Cmd
+			m.categoriesModel, cmd = m.categoriesModel.Update(categoriesLoadedMsg{
+				err: msg.err,
+			})
+			return m, cmd
+		}
+
+		m.categoriesModel.categories = msg.categories
 		return m, nil
 
 	case transactionsLoadedMsg:
@@ -165,6 +181,7 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		tm := m.transactionsModel
 		tm.accountOptions = accountOptions
 		tm.categoryOptions = categoryOptions
+		tm.mode = transactionsModeFormNew
 		m.transactionsModel = tm
 		return m, nil
 
@@ -177,7 +194,7 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 			return m, cmd
 		}
-		txDateTime, err := time.Parse(time.DateTime, msg.TxDate)
+		txDateTime, err := time.Parse(time.DateOnly, msg.TxDate)
 		if err != nil {
 			var cmd tea.Cmd
 			m.transactionsModel, cmd = m.transactionsModel.Update(transactionCreatedMsg{
@@ -263,8 +280,23 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		key := msg.String()
 
-		if key == "ctrl+c" || key == "q" {
+		if key == "ctrl+c" {
 			return m, tea.Quit
+		}
+
+		if key == "q" {
+			isEditing := false
+			switch m.currentSection {
+			case sectionAccounts:
+				isEditing = m.accountsModel.IsEditing()
+			case sectionTransactions:
+				isEditing = m.transactionsModel.IsEditing()
+				// case sectionCategories:
+				// 	isEditing = m.categoriesModel.isEditing()
+			}
+			if !isEditing {
+				return m, tea.Quit
+			}
 		}
 
 		if key == "tab" {

@@ -28,6 +28,7 @@ const (
 	txFormFieldPosted
 	txFormFieldAccount
 	txFormFieldCategory
+	txFormFieldSave
 )
 
 const (
@@ -57,6 +58,11 @@ type txAccountOption struct {
 type txCategoryOption struct {
 	ID   uuid.UUID
 	Name string
+}
+
+var postedValues = []bool{
+	true,
+	false,
 }
 
 type transactionsModel struct {
@@ -111,6 +117,17 @@ func initialTransactionsModel() transactionsModel {
 
 func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case transactionCreatedMsg:
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			return m, nil
+		}
+		m.errorMsg = ""
+		m.mode = transactionsModeList
+		return m, func() tea.Msg {
+			return transactionsReloadRequestedMsg{}
+		}
+
 	case tea.KeyMsg:
 		key := msg.String()
 
@@ -126,7 +143,6 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 					m.cursor++
 				}
 			case "n":
-				m.mode = transactionsModeFormNew
 				return m, func() tea.Msg {
 					return transactionsNewRequestedMsg{}
 				}
@@ -139,6 +155,124 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 				m.mode = transactionsModeList
 			case "e":
 			case "d":
+			}
+		case transactionsModeFormNew, transactionsModeFormEdit:
+			if m.formEditing {
+				if key == "esc" {
+					m.formEditing = false
+					m.amountInput.Blur()
+					m.descriptionInput.Blur()
+					m.dateInput.Blur()
+					return m, nil
+				}
+
+				switch m.formFieldCursor {
+				case txFormFieldAmount:
+					var cmd tea.Cmd
+					m.amountInput, cmd = m.amountInput.Update(msg)
+					return m, cmd
+				case txFormFieldDescription:
+					var cmd tea.Cmd
+					m.descriptionInput, cmd = m.descriptionInput.Update(msg)
+					return m, cmd
+				case txFormFieldDate:
+					var cmd tea.Cmd
+					m.dateInput, cmd = m.dateInput.Update(msg)
+					return m, cmd
+				}
+			}
+
+			switch key {
+			case "esc":
+				m.mode = transactionsModeList
+				m.errorMsg = ""
+				return m, nil
+			case "up", "k":
+				if m.formFieldCursor > txFormFieldAmount {
+					m.formFieldCursor--
+				}
+			case "down", "j":
+				if m.formFieldCursor < txFormFieldSave {
+					m.formFieldCursor++
+				}
+			case "enter":
+				switch m.formFieldCursor {
+				case txFormFieldAmount, txFormFieldDescription, txFormFieldDate:
+					m.formEditing = true
+					m.amountInput.Blur()
+					m.descriptionInput.Blur()
+					m.dateInput.Blur()
+
+					switch m.formFieldCursor {
+					case txFormFieldAmount:
+						m.amountInput.Focus()
+					case txFormFieldDescription:
+						m.descriptionInput.Focus()
+					case txFormFieldDate:
+						m.dateInput.Focus()
+					}
+				case txFormFieldSave:
+					switch m.mode {
+					case transactionsModeFormNew:
+						amount := m.amountInput.Value()
+						description := m.descriptionInput.Value()
+						date := m.dateInput.Value()
+						account := m.accountOptions[m.formAccountIndex].ID
+						category := m.categoryOptions[m.formCategoryIndex].ID
+						posted := postedValues[m.formPostedIndex]
+						return m, submitNewTransactionMsg(amount, description, date, account.String(), category.String(), posted)
+					case transactionsModeFormEdit:
+
+					}
+				}
+			default:
+				switch m.formFieldCursor {
+				case txFormFieldAmount:
+					var cmd tea.Cmd
+					m.amountInput, cmd = m.amountInput.Update(msg)
+					return m, cmd
+				case txFormFieldDescription:
+					var cmd tea.Cmd
+					m.descriptionInput, cmd = m.descriptionInput.Update(msg)
+					return m, cmd
+				case txFormFieldDate:
+					var cmd tea.Cmd
+					m.dateInput, cmd = m.dateInput.Update(msg)
+					return m, cmd
+				case txFormFieldPosted:
+					if key == "left" || key == "h" {
+						if m.formPostedIndex > 0 {
+							m.formPostedIndex--
+						}
+					}
+					if key == "right" || key == "l" {
+						if m.formPostedIndex < len(postedValues)-1 {
+							m.formPostedIndex++
+						}
+					}
+				case txFormFieldAccount:
+					if key == "left" || key == "h" {
+						if m.formAccountIndex > 0 {
+							m.formAccountIndex--
+						}
+					}
+					if key == "right" || key == "l" {
+						if m.formAccountIndex < len(m.accountOptions)-1 {
+							m.formAccountIndex++
+						}
+					}
+				case txFormFieldCategory:
+					if key == "left" || key == "h" {
+						if m.formCategoryIndex > 0 {
+							m.formCategoryIndex--
+						}
+					}
+					if key == "right" || key == "l" {
+						if m.formCategoryIndex < len(m.categoryOptions)-1 {
+							m.formCategoryIndex++
+						}
+					}
+				}
 			}
 		}
 	}
@@ -154,8 +288,8 @@ func (m transactionsModel) View() string {
 			if m.cursor == i {
 				cursor = ">"
 			}
-
-			s += fmt.Sprintf("%s %v | %s | %s\n", cursor, transaction.TxDate, transaction.TxDescription, transaction.Amount)
+			dateStr := transaction.TxDate.Format("2006-01-02")
+			s += fmt.Sprintf("%s %s | %s | %s\n", cursor, dateStr, transaction.TxDescription, transaction.Amount)
 		}
 		s += "\n(Use 'j'/'k' to move, 'enter' to view details, 'n' to create a new transaction, 'd' to delete transaction)\n"
 		return s
@@ -164,7 +298,7 @@ func (m transactionsModel) View() string {
 		s := "Transaction Details\n\n"
 		s += fmt.Sprintf("Amount: %s\n", tx.Amount.String())
 		s += fmt.Sprintf("Description: %s\n", tx.TxDescription)
-		s += fmt.Sprintf("Date: %s\n", tx.TxDate.String())
+		s += fmt.Sprintf("Date: %s\n", tx.TxDate.Format("2006-01-02"))
 		s += fmt.Sprintf("Posted: %v\n", tx.Posted)
 		s += fmt.Sprintf("Account: %s\n", tx.AccountName)
 		s += fmt.Sprintf("Category: %s\n\n", tx.CategoryName)
@@ -173,29 +307,40 @@ func (m transactionsModel) View() string {
 
 		return s
 	case transactionsModeFormNew:
-		s := "New Category\n\n"
-	
+		s := "New Transaction\n\n"
+
 		s += m.errorView()
-	
+
 		currentRow := func(field int) string {
 			if m.formFieldCursor == field {
 				return ">"
 			}
 			return " "
 		}
-	
+
 		s += fmt.Sprintf("%s Amount: %s\n", currentRow(txFormFieldAmount), m.amountInput.View())
 		s += fmt.Sprintf("%s Description: %s\n", currentRow(txFormFieldDescription), m.descriptionInput.View())
-		
-		s += fmt.Sprintf("%s Account ('h'/'l' to change): %s\n", currentRow(txFormFieldAccount), m.accountOptions[m.formAccountIndex])
-		s += fmt.Sprintf("%s Category ('h'/'l' to change): %s\n", currentRow(txFormFieldCategory), m.categoryOptions[m.formCategoryIndex])
-		s += fmt.Sprintf("%s Initial Balance: %s\n", currentRow(formFieldBalance), m.balanceInput.View())
-		s += "\n"
-		s += fmt.Sprintf("%s [ Save ]\n", currentRow(formFieldSave))
+		s += fmt.Sprintf("%s Date(YYYY-MM-DD): %s\n", currentRow(txFormFieldDate), m.dateInput.View())
+		s += fmt.Sprintf("%s Posted ('h'/'l' to change): %v\n", currentRow(txFormFieldPosted), postedValues[m.formPostedIndex])
+		s += fmt.Sprintf("%s Account ('h'/'l' to change): %s\n", currentRow(txFormFieldAccount), m.accountOptions[m.formAccountIndex].Name)
+		s += fmt.Sprintf("%s Category ('h'/'l' to change): %s\n\n", currentRow(txFormFieldCategory), m.categoryOptions[m.formCategoryIndex].Name)
+
+		s += fmt.Sprintf("%s [ Save ]\n", currentRow(txFormFieldSave))
 		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"
-	
+
 		return s
 	}
 
 	return "Unknown transaction mode"
+}
+
+func (m transactionsModel) errorView() string {
+	if m.errorMsg == "" {
+		return ""
+	}
+	return fmt.Sprintf("Error: %s\n\n", m.errorMsg)
+}
+
+func (m transactionsModel) IsEditing() bool {
+	return m.formEditing
 }
