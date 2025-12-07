@@ -128,6 +128,44 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 			return transactionsReloadRequestedMsg{}
 		}
 
+	case transactionUpdatedMsg:
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			return m, nil
+		}
+		m.mode = transactionsModeList
+		return m, func() tea.Msg {
+			return transactionsReloadRequestedMsg{}
+		}
+
+	case transactionDeletedMsg:
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			return m, nil
+		}
+
+		filtered := m.transactions[:0]
+		for _, transaction := range m.transactions {
+			if transaction.ID != msg.transactionID {
+				filtered = append(filtered, transaction)
+			}
+		}
+		m.transactions = filtered
+
+		if len(m.transactions) == 1 {
+			m.cursor = 0
+			m.mode = transactionsModeList
+		} else {
+			prevCursor := m.cursor
+			if prevCursor >= len(m.transactions) {
+				m.cursor = len(m.transactions) - 1
+			} else {
+				m.cursor = prevCursor
+			}
+			m.mode = transactionsModeList
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		key := msg.String()
 
@@ -146,6 +184,11 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 				return m, func() tea.Msg {
 					return transactionsNewRequestedMsg{}
 				}
+			case "d":
+				if len(m.transactions) > 0 {
+					m.mode = transactionsModeDelete
+					m.confirmCursor = txConfirmCancel
+				}
 			case "enter":
 				m.mode = transactionsModeDetails
 			}
@@ -154,7 +197,12 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 			case "esc":
 				m.mode = transactionsModeList
 			case "e":
+				return m, func() tea.Msg {
+					return transactionsEditRequestedMsg{}
+				}
 			case "d":
+				m.mode = transactionsModeDelete
+				m.confirmCursor = txConfirmCancel
 			}
 		case transactionsModeFormNew, transactionsModeFormEdit:
 			if m.formEditing {
@@ -220,9 +268,15 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 						account := m.accountOptions[m.formAccountIndex].ID
 						category := m.categoryOptions[m.formCategoryIndex].ID
 						posted := postedValues[m.formPostedIndex]
-						return m, submitNewTransactionMsg(amount, description, date, account.String(), category.String(), posted)
+						return m, submitCreateTransactionMsg(amount, description, date, account.String(), category.String(), posted)
 					case transactionsModeFormEdit:
-
+						amount := m.amountInput.Value()
+						description := m.descriptionInput.Value()
+						date := m.dateInput.Value()
+						account := m.accountOptions[m.formAccountIndex].ID
+						category := m.categoryOptions[m.formCategoryIndex].ID
+						posted := postedValues[m.formPostedIndex]
+						return m, submitUpdateTransactionMsg(m.transactions[m.cursor].ID, amount, description, date, posted, account, category)
 					}
 				}
 			default:
@@ -274,6 +328,26 @@ func (m transactionsModel) Update(msg tea.Msg) (transactionsModel, tea.Cmd) {
 					}
 				}
 			}
+		case transactionsModeDelete:
+			switch key {
+			case "esc":
+				m.mode = transactionsModeList
+			case "up", "k":
+				if m.confirmCursor > confirmYes {
+					m.confirmCursor--
+				}
+			case "down", "j":
+				if m.confirmCursor < confirmCancel {
+					m.confirmCursor++
+				}
+			case "enter":
+				switch m.confirmCursor {
+				case confirmYes:
+					return m, submitDeleteTransactionMsg(m.transactions[m.cursor].ID)
+				case confirmCancel:
+					m.mode = transactionsModeList
+				}
+			}
 		}
 	}
 	return m, nil
@@ -306,8 +380,11 @@ func (m transactionsModel) View() string {
 		s += "(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
 
 		return s
-	case transactionsModeFormNew:
+	case transactionsModeFormNew, transactionsModeFormEdit:
 		s := "New Transaction\n\n"
+		if m.mode == transactionsModeFormEdit {
+			s = "Edit Transaction\n\n"
+		}
 
 		s += m.errorView()
 
@@ -327,6 +404,23 @@ func (m transactionsModel) View() string {
 
 		s += fmt.Sprintf("%s [ Save ]\n", currentRow(txFormFieldSave))
 		s += "\n(Use 'j'/'k' to move, 'enter' to edit field, 'esc' to stop editing, 'esc' again to cancel)\n"
+
+		return s
+	case transactionsModeDelete:
+		s := "Delete Transaction\n\n"
+		s += fmt.Sprintf("Are you sure you want to delete transaction '%s'?\n", m.transactions[m.cursor].TxDescription)
+
+		currentRow := func(field int) string {
+			if m.confirmCursor == field {
+				return ">"
+			}
+			return " "
+		}
+
+		s += fmt.Sprintf("%s [ Yes ]\n", currentRow(confirmYes))
+		s += fmt.Sprintf("%s [ Cancel ]\n", currentRow(confirmCancel))
+
+		s += "\n(Use 'j'/'k' to move, 'enter' to select, 'esc' to cancel)"
 
 		return s
 	}

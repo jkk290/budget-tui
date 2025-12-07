@@ -115,12 +115,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	// Accounts
 	case accountsReloadRequestedMsg:
 		cmd := loadAccountsCmd(m.accountsAPI)
-		return m, cmd
-
-	case transactionsReloadRequestedMsg:
-		cmd := loadTransactionsCmd(m.transactionsAPI)
 		return m, cmd
 
 	case accountsLoadedMsg:
@@ -136,6 +133,50 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.accountsModel.cursor = 0
 		return m, nil
 
+	case accountCreateSubmittedMsg:
+		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)
+		if err != nil {
+			var cmd tea.Cmd
+			m.accountsModel, cmd = m.accountsModel.Update(accountCreatedMsg{
+				err: fmt.Errorf("invalid balance: %w", err),
+			})
+			return m, cmd
+		}
+
+		req := CreateAccountRequest{
+			AccountName:    msg.Name,
+			AccountType:    msg.Type,
+			InitialBalance: balanceDecimal,
+		}
+
+		return m, createAccountCmd(m.accountsAPI, req)
+
+	case accountCreatedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	case accountUpdateSubmittedMsg:
+		req := UpdateAccountRequest{
+			AccountName: msg.Name,
+		}
+
+		return m, updateAccountCmd(m.accountsAPI, msg.AccountID, req)
+
+	case accountUpdatedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	case accountDeleteSubmittedMsg:
+		return m, deleteAccountCmd(m.accountsAPI, msg.AccountID)
+
+	case accountDeletedMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	// Categories
 	case categoriesLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -148,6 +189,11 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.categoriesModel.categories = msg.categories
 		return m, nil
 
+	// Transactions
+	case transactionsReloadRequestedMsg:
+		cmd := loadTransactionsCmd(m.transactionsAPI)
+		return m, cmd
+
 	case transactionsLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -159,30 +205,6 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.transactionsModel.transactions = msg.transactions
 		m.transactionsModel.cursor = 0
-		return m, nil
-
-	case transactionsNewRequestedMsg:
-		accountOptions := make([]txAccountOption, len(m.accountsModel.accounts))
-		for i, account := range m.accountsModel.accounts {
-			accountOptions[i] = txAccountOption{
-				ID:   account.Id,
-				Name: account.AccountName,
-			}
-		}
-
-		categoryOptions := make([]txCategoryOption, len(m.categoriesModel.categories))
-		for i, category := range m.categoriesModel.categories {
-			categoryOptions[i] = txCategoryOption{
-				ID:   category.ID,
-				Name: category.CategoryName,
-			}
-		}
-
-		tm := m.transactionsModel
-		tm.accountOptions = accountOptions
-		tm.categoryOptions = categoryOptions
-		tm.mode = transactionsModeFormNew
-		m.transactionsModel = tm
 		return m, nil
 
 	case transactionCreateSubmittedMsg:
@@ -234,48 +256,137 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.transactionsModel, cmd = m.transactionsModel.Update(msg)
 		return m, cmd
 
-	case accountCreateSubmittedMsg:
-		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)
+	case transactionUpdateSubmittedMsg:
+		amountDecimal, err := decimal.NewFromString(msg.Amount)
 		if err != nil {
 			var cmd tea.Cmd
-			m.accountsModel, cmd = m.accountsModel.Update(accountCreatedMsg{
-				err: fmt.Errorf("invalid balance: %w", err),
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionUpdatedMsg{
+				err: fmt.Errorf("invalid amount: %w", err),
+			})
+			return m, cmd
+		}
+		txDateTime, err := time.Parse(time.DateOnly, msg.Date)
+		if err != nil {
+			var cmd tea.Cmd
+			m.transactionsModel, cmd = m.transactionsModel.Update(transactionUpdatedMsg{
+				err: fmt.Errorf("invalid date: %w", err),
 			})
 			return m, cmd
 		}
 
-		req := CreateAccountRequest{
-			AccountName:    msg.Name,
-			AccountType:    msg.Type,
-			InitialBalance: balanceDecimal,
+		req := UpdateTransactionRequest{
+			Amount:        amountDecimal,
+			TxDescription: msg.Description,
+			TxDate:        txDateTime,
+			Posted:        msg.Posted,
+			AccountID:     msg.AccountID,
+			CategoryID:    msg.CategoryID,
+		}
+		return m, updateTransactionCmd(m.transactionsAPI, msg.TransactionID, req)
+
+	case transactionUpdatedMsg:
+		var cmd tea.Cmd
+		m.transactionsModel, cmd = m.transactionsModel.Update(msg)
+		return m, cmd
+
+	case transactionDeleteSubmittedMsg:
+		return m, deleteTransactionCmd(m.transactionsAPI, msg.transactionID)
+
+	case transactionDeletedMsg:
+		var cmd tea.Cmd
+		m.transactionsModel, cmd = m.transactionsModel.Update(msg)
+		return m, cmd
+
+	case transactionsNewRequestedMsg:
+		accountOptions := make([]txAccountOption, len(m.accountsModel.accounts))
+		for i, account := range m.accountsModel.accounts {
+			accountOptions[i] = txAccountOption{
+				ID:   account.ID,
+				Name: account.AccountName,
+			}
 		}
 
-		return m, createAccountCmd(m.accountsAPI, req)
-
-	case accountCreatedMsg:
-		var cmd tea.Cmd
-		m.accountsModel, cmd = m.accountsModel.Update(msg)
-		return m, cmd
-
-	case accountUpdatedSubmittedMsg:
-		req := UpdateAccountRequest{
-			AccountName: msg.Name,
+		categoryOptions := make([]txCategoryOption, len(m.categoriesModel.categories))
+		for i, category := range m.categoriesModel.categories {
+			categoryOptions[i] = txCategoryOption{
+				ID:   category.ID,
+				Name: category.CategoryName,
+			}
 		}
 
-		return m, updateAccountCmd(m.accountsAPI, msg.AccountId, req)
+		tm := m.transactionsModel
+		tm.accountOptions = accountOptions
+		tm.categoryOptions = categoryOptions
+		tm.mode = transactionsModeFormNew
+		tm.formFieldCursor = txFormFieldAmount
+		tm.formEditing = false
+		tm.amountInput.SetValue("")
+		tm.amountInput.Blur()
+		tm.descriptionInput.SetValue("")
+		tm.descriptionInput.Blur()
+		tm.dateInput.SetValue("")
+		tm.dateInput.Blur()
+		tm.formPostedIndex = 0
+		tm.formAccountIndex = 0
+		tm.formCategoryIndex = 0
+		tm.errorMsg = ""
+		m.transactionsModel = tm
+		return m, nil
 
-	case accountUpdatedMsg:
-		var cmd tea.Cmd
-		m.accountsModel, cmd = m.accountsModel.Update(msg)
-		return m, cmd
+	case transactionsEditRequestedMsg:
+		accountOptions := make([]txAccountOption, len(m.accountsModel.accounts))
+		for i, account := range m.accountsModel.accounts {
+			accountOptions[i] = txAccountOption{
+				ID:   account.ID,
+				Name: account.AccountName,
+			}
+		}
 
-	case accountDeleteSubmittedMsg:
-		return m, deleteAccountCmd(m.accountsAPI, msg.AccountId)
+		categoryOptions := make([]txCategoryOption, len(m.categoriesModel.categories))
+		for i, category := range m.categoriesModel.categories {
+			categoryOptions[i] = txCategoryOption{
+				ID:   category.ID,
+				Name: category.CategoryName,
+			}
+		}
 
-	case accountDeletedMsg:
-		var cmd tea.Cmd
-		m.accountsModel, cmd = m.accountsModel.Update(msg)
-		return m, cmd
+		tm := m.transactionsModel
+		currentTx := tm.transactions[tm.cursor]
+		tm.accountOptions = accountOptions
+		tm.categoryOptions = categoryOptions
+		tm.mode = transactionsModeFormEdit
+		tm.formFieldCursor = txFormFieldAmount
+		tm.formEditing = false
+		tm.amountInput.SetValue(currentTx.Amount.String())
+		tm.amountInput.Blur()
+		tm.descriptionInput.SetValue(currentTx.TxDescription)
+		tm.descriptionInput.Blur()
+		tm.dateInput.SetValue(currentTx.TxDate.Format("2006-01-02"))
+		tm.dateInput.Blur()
+
+		if currentTx.Posted {
+			tm.formPostedIndex = 0
+		} else {
+			tm.formPostedIndex = 1
+		}
+
+		tm.formAccountIndex = 0
+		for i, option := range accountOptions {
+			if option.ID == currentTx.AccountID {
+				tm.formAccountIndex = i
+				break
+			}
+		}
+		tm.formCategoryIndex = 0
+		for i, option := range categoryOptions {
+			if option.ID == currentTx.CategoryID {
+				tm.formCategoryIndex = i
+				break
+			}
+		}
+		tm.errorMsg = ""
+		m.transactionsModel = tm
+		return m, nil
 
 	case tea.KeyMsg:
 		key := msg.String()

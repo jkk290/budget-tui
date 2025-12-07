@@ -34,7 +34,7 @@ const (
 )
 
 type Account struct {
-	Id             uuid.UUID       `json:"id"`
+	ID             uuid.UUID       `json:"id"`
 	AccountName    string          `json:"account_name"`
 	AccountType    string          `json:"account_type"`
 	CreatedAt      time.Time       `json:"created_at"`
@@ -119,7 +119,7 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 
 		filtered := m.accounts[:0]
 		for _, account := range m.accounts {
-			if account.Id != msg.accountID {
+			if account.ID != msg.accountID {
 				filtered = append(filtered, account)
 			}
 		}
@@ -252,9 +252,9 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 						name := m.nameInput.Value()
 						accountType := accountTypes[m.formTypeIndex]
 						balance := m.balanceInput.Value()
-						return m, submitNewAccountMsg(name, accountType, balance)
+						return m, submitCreateAccountMsg(name, accountType, balance)
 					case accountsModeFormEdit:
-						id := m.accounts[m.cursor].Id
+						id := m.accounts[m.cursor].ID
 						name := m.nameInput.Value()
 						return m, submitUpdateAccountMsg(id, name)
 					}
@@ -299,7 +299,7 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			case "enter":
 				switch m.confirmCursor {
 				case confirmYes:
-					return m, submitDeleteAccountMsg(m.accounts[m.cursor].Id)
+					return m, submitDeleteAccountMsg(m.accounts[m.cursor].ID)
 				case confirmCancel:
 					m.mode = accountsModeList
 				}

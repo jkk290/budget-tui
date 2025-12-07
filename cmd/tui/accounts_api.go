@@ -113,7 +113,7 @@ type accountCreateSubmittedMsg struct {
 	BalanceText string
 }
 
-func submitNewAccountMsg(name, accountType, balance string) tea.Cmd {
+func submitCreateAccountMsg(name, accountType, balance string) tea.Cmd {
 	return func() tea.Msg {
 		return accountCreateSubmittedMsg{
 			Name:        name,
@@ -127,8 +127,8 @@ type UpdateAccountRequest struct {
 	AccountName string `json:"account_name"`
 }
 
-func (a *accountsClient) UpdateAccount(ctx context.Context, Id uuid.UUID, req UpdateAccountRequest) (Account, error) {
-	httpReq, err := a.client.newJSONRequest(ctx, http.MethodPut, "/accounts/"+Id.String(), req)
+func (a *accountsClient) UpdateAccount(ctx context.Context, id uuid.UUID, req UpdateAccountRequest) (Account, error) {
+	httpReq, err := a.client.newJSONRequest(ctx, http.MethodPut, "/accounts/"+id.String(), req)
 	if err != nil {
 		return Account{}, err
 	}
@@ -156,10 +156,10 @@ type accountUpdatedMsg struct {
 	err     error
 }
 
-func updateAccountCmd(api AccountsAPI, Id uuid.UUID, req UpdateAccountRequest) tea.Cmd {
+func updateAccountCmd(api AccountsAPI, id uuid.UUID, req UpdateAccountRequest) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		account, err := api.UpdateAccount(ctx, Id, req)
+		account, err := api.UpdateAccount(ctx, id, req)
 		return accountUpdatedMsg{
 			account: account,
 			err:     err,
@@ -167,22 +167,22 @@ func updateAccountCmd(api AccountsAPI, Id uuid.UUID, req UpdateAccountRequest) t
 	}
 }
 
-type accountUpdatedSubmittedMsg struct {
-	AccountId uuid.UUID
+type accountUpdateSubmittedMsg struct {
+	AccountID uuid.UUID
 	Name      string
 }
 
-func submitUpdateAccountMsg(Id uuid.UUID, name string) tea.Cmd {
+func submitUpdateAccountMsg(id uuid.UUID, name string) tea.Cmd {
 	return func() tea.Msg {
-		return accountUpdatedSubmittedMsg{
-			AccountId: Id,
+		return accountUpdateSubmittedMsg{
+			AccountID: id,
 			Name:      name,
 		}
 	}
 }
 
-func (a *accountsClient) DeleteAccount(ctx context.Context, Id uuid.UUID) error {
-	req, err := a.client.newRequest(ctx, http.MethodDelete, "/accounts/"+Id.String(), nil)
+func (a *accountsClient) DeleteAccount(ctx context.Context, id uuid.UUID) error {
+	req, err := a.client.newRequest(ctx, http.MethodDelete, "/accounts/"+id.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -217,13 +217,13 @@ func deleteAccountCmd(api AccountsAPI, id uuid.UUID) tea.Cmd {
 }
 
 type accountDeleteSubmittedMsg struct {
-	AccountId uuid.UUID
+	AccountID uuid.UUID
 }
 
-func submitDeleteAccountMsg(Id uuid.UUID) tea.Cmd {
+func submitDeleteAccountMsg(id uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		return accountDeleteSubmittedMsg{
-			AccountId: Id,
+			AccountID: id,
 		}
 	}
 }
