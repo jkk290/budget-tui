@@ -133,6 +133,14 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.accountsModel.cursor = 0
 		return m, nil
 
+	case loadAccountTxsSubmittedMsg:
+		return m, loadAccountTxsCmd(m.accountsAPI, msg.accountID)
+
+	case loadAccountTxsMsg:
+		var cmd tea.Cmd
+		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
 	case accountCreateSubmittedMsg:
 		balanceDecimal, err := decimal.NewFromString(msg.BalanceText)
 		if err != nil {

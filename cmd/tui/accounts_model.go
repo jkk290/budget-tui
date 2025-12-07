@@ -44,9 +44,10 @@ type Account struct {
 }
 
 type accountsModel struct {
-	mode     accountsMode
-	accounts []Account
-	cursor   int
+	mode       accountsMode
+	accounts   []Account
+	accountTxs []Transaction
+	cursor     int
 
 	formEditing     bool
 	formFieldCursor int
@@ -101,6 +102,16 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 			return accountsReloadRequestedMsg{}
 		}
 
+	case loadAccountTxsMsg:
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			return m, nil
+		}
+		m.errorMsg = ""
+		m.accountTxs = msg.accountTxs
+		m.mode = accountsModeDetails
+		return m, nil
+
 	case accountUpdatedMsg:
 		if msg.err != nil {
 			m.errorMsg = msg.err.Error()
@@ -154,7 +165,9 @@ func (m accountsModel) Update(msg tea.Msg) (accountsModel, tea.Cmd) {
 					m.cursor++
 				}
 			case "enter":
-				m.mode = accountsModeDetails
+				// m.mode = accountsModeDetails
+				return m, submitLoadAccountTxsMsg(m.accounts[m.cursor].ID)
+
 			case "n":
 				m.mode = accountsModeFormNew
 
@@ -328,12 +341,23 @@ func (m accountsModel) View() string {
 		return s
 	case accountsModeDetails:
 		acc := m.accounts[m.cursor]
-		return fmt.Sprintf(
-			"Account Details\n\nName: %s\nType: %s\nBalance: $%s\n\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n",
-			acc.AccountName,
+		s := "Account Details\n\n"
+		s += m.errorView()
+		s += fmt.Sprintf("Name: %s\nType: %s\nBalance: $%s\n\n", acc.AccountName,
 			acc.AccountType,
-			acc.AccountBalance.String(),
-		)
+			acc.AccountBalance.String())
+
+		s += "Transactions\n\n"
+		for _, transaction := range m.accountTxs {
+
+			dateStr := transaction.TxDate.Format("2006-01-02")
+			s += fmt.Sprintf("%s | %s | %s\n", dateStr, transaction.TxDescription, transaction.Amount)
+		}
+
+		s += "\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
+
+		return s
+
 	case accountsModeFormNew:
 		s := "New Account\n\n"
 

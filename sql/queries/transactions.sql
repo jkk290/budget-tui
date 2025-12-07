@@ -19,7 +19,8 @@ WHERE id = $1;
 
 -- name: GetTransactionsByAccount :many
 SELECT * FROM transactions
-WHERE account_id = $1;
+WHERE account_id = $1
+ORDER BY tx_date::date DESC, tx_date DESC;
 
 -- name: GetTransactionsByCategory :many
 SELECT * FROM transactions

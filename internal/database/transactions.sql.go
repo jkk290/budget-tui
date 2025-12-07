@@ -103,6 +103,7 @@ func (q *Queries) GetTransactionByID(ctx context.Context, id uuid.UUID) (Transac
 const getTransactionsByAccount = `-- name: GetTransactionsByAccount :many
 SELECT id, amount, tx_description, tx_date, created_at, updated_at, posted, account_id, category_id FROM transactions
 WHERE account_id = $1
+ORDER BY tx_date::date DESC, tx_date DESC
 `
 
 func (q *Queries) GetTransactionsByAccount(ctx context.Context, accountID uuid.UUID) ([]Transaction, error) {

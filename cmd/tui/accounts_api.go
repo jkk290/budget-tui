@@ -13,6 +13,7 @@ import (
 
 type AccountsAPI interface {
 	ListAccounts(ctx context.Context) ([]Account, error)
+	ListAccountTransactions(ctx context.Context, id uuid.UUID) ([]Transaction, error)
 	CreateAccount(ctx context.Context, req CreateAccountRequest) (Account, error)
 	UpdateAccount(ctx context.Context, id uuid.UUID, req UpdateAccountRequest) (Account, error)
 	DeleteAccount(ctx context.Context, id uuid.UUID) error
@@ -57,6 +58,54 @@ func loadAccountsCmd(api AccountsAPI) tea.Cmd {
 		return accountsLoadedMsg{
 			accounts: accounts,
 			err:      err,
+		}
+	}
+}
+
+func (a *accountsClient) ListAccountTransactions(ctx context.Context, id uuid.UUID) ([]Transaction, error) {
+	req, err := a.client.newRequest(ctx, http.MethodGet, "/accounts/"+id.String()+"/transactions", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := a.client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var accountTxs []Transaction
+	if err := json.NewDecoder(res.Body).Decode(&accountTxs); err != nil {
+		return nil, err
+	}
+
+	return accountTxs, nil
+}
+
+type loadAccountTxsMsg struct {
+	accountTxs []Transaction
+	err        error
+}
+
+func loadAccountTxsCmd(api AccountsAPI, id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.TODO()
+		accountTxs, err := api.ListAccountTransactions(ctx, id)
+		return loadAccountTxsMsg{
+			accountTxs: accountTxs,
+			err:        err,
+		}
+	}
+}
+
+type loadAccountTxsSubmittedMsg struct {
+	accountID uuid.UUID
+}
+
+func submitLoadAccountTxsMsg(id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return loadAccountTxsSubmittedMsg{
+			accountID: id,
 		}
 	}
 }
