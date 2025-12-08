@@ -6,10 +6,15 @@ import (
 	"net/http"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CategoriesAPI interface {
 	ListCategories(ctx context.Context) ([]Category, error)
+	CreateCategory(ctx context.Context, req CreateCategoryRequest) (Category, error)
+	UpdateCategory(ctx context.Context, id uuid.UUID, req UpdateCategoryRequest) (Category, error)
+	DeleteCategory(ctx context.Context, id uuid.UUID) error
 }
 
 type categoriesClient struct {
@@ -54,4 +59,23 @@ func loadCategoriesCmd(api CategoriesAPI) tea.Cmd {
 			err:        err,
 		}
 	}
+}
+
+type CreateCategoryRequest struct {
+	Name    string          `json:"category_name"`
+	Budget  decimal.Decimal `json:"budget"`
+	GroupID uuid.UUID       `json:"group_id"`
+}
+
+func (c *categoriesClient) CreateCategory(ctx context.Context, req CreateCategoryRequest) (Category, error) {
+	httpReq, err := c.client.newJSONRequest(ctx, http.MethodPost, "/categories", req)
+	if err != nil {
+		return Category{}, err
+	}
+
+	res, err := c.client.httpClient.Do(httpReq)
+	if err != nil {
+		return Category{}, err
+	}
+	defer res.Body.Close()
 }
