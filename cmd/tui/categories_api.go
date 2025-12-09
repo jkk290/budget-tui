@@ -16,6 +16,7 @@ type CategoriesAPI interface {
 	CreateCategory(ctx context.Context, req CreateCategoryRequest) (Category, error)
 	UpdateCategory(ctx context.Context, id uuid.UUID, req UpdateCategoryRequest) (Category, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) error
+	ListCategoryTransactions(ctx context.Context, id uuid.UUID) ([]Transaction, error)
 }
 
 type categoriesClient struct {
@@ -58,6 +59,54 @@ func loadCategoriesCmd(api CategoriesAPI) tea.Cmd {
 		return categoriesLoadedMsg{
 			categories: categories,
 			err:        err,
+		}
+	}
+}
+
+func (c *categoriesClient) ListCategoryTransactions(ctx context.Context, id uuid.UUID) ([]Transaction, error) {
+	req, err := c.client.newRequest(ctx, http.MethodGet, "/categories/"+id.String()+"/transactions", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var catTxs []Transaction
+	if err := json.NewDecoder(res.Body).Decode(&catTxs); err != nil {
+		return nil, err
+	}
+
+	return catTxs, nil
+}
+
+type loadCategoryTxsMsg struct {
+	catTxs []Transaction
+	err    error
+}
+
+func loadCategoryTxsCmd(api CategoriesAPI, id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.TODO()
+		catTxs, err := api.ListCategoryTransactions(ctx, id)
+		return loadCategoryTxsMsg{
+			catTxs: catTxs,
+			err:    err,
+		}
+	}
+}
+
+type loadCategoryTxsSubmittedMsg struct {
+	categoryID uuid.UUID
+}
+
+func submitLoadCategoryTxsMsg(id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return loadCategoryTxsSubmittedMsg{
+			categoryID: id,
 		}
 	}
 }

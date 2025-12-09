@@ -30,3 +30,11 @@ INNER JOIN categories
 ON categories.id = transactions.category_id
 WHERE accounts.user_id = $1
 ORDER BY transactions.tx_date DESC;
+
+-- name: GetUserCategoriesDetailed :many
+SELECT categories.*,
+groups.group_name
+FROM categories
+INNER JOIN groups
+ON groups.id = categories.group_id
+WHERE categories.user_id = $1;

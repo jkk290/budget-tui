@@ -40,6 +40,7 @@ type Category struct {
 	Budget       decimal.Decimal `json:"budget"`
 	UserID       uuid.UUID       `json:"user_id"`
 	GroupID      uuid.UUID       `json:"group_id"`
+	GroupName    string          `json:"group_name"`
 }
 
 type catGroupOption struct {
@@ -169,7 +170,10 @@ func (m categoriesModel) Update(msg tea.Msg) (categoriesModel, tea.Cmd) {
 					m.confirmCursor = catConfirmCancel
 				}
 			case "enter":
-				m.mode = categoriesModeDetails
+				if len(m.categories) > 0 {
+					return m, submitLoadCategoryTxsMsg(m.categories[m.cursor].ID)
+				}
+
 			}
 		case categoriesModeDetails:
 			switch key {
@@ -261,7 +265,7 @@ func (m categoriesModel) Update(msg tea.Msg) (categoriesModel, tea.Cmd) {
 						}
 					}
 					if key == "right" || key == "l" {
-						if m.formGroupIndex < len(postedValues)-1 {
+						if m.formGroupIndex < len(m.groupOptions)-1 {
 							m.formGroupIndex++
 						}
 					}
@@ -296,6 +300,7 @@ func (m categoriesModel) View() string {
 	switch m.mode {
 	case categoriesModeList:
 		s := "Categories\n\n"
+		s += m.errorView()
 		for i, category := range m.categories {
 			cursor := " "
 			if m.cursor == i {
@@ -311,9 +316,16 @@ func (m categoriesModel) View() string {
 		s := "Category Details\n\n"
 		s += fmt.Sprintf("Name: %s\n", cat.CategoryName)
 		s += fmt.Sprintf("Budget: $%s\n", cat.Budget.String())
-		// s += fmt.Sprintf("Group: %s\n", cat.GroupID)
+		s += fmt.Sprintf("Group: %s\n\n", cat.GroupName)
 
-		s += "(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
+		s += "Transactions\n\n"
+		for _, transaction := range m.catTxs {
+
+			dateStr := transaction.TxDate.Format("2006-01-02")
+			s += fmt.Sprintf("%s | %s | %s\n", dateStr, transaction.TxDescription, transaction.Amount)
+		}
+
+		s += "\n(Press 'esc' to go back, 'e' to edit, 'd' to delete)\n"
 
 		return s
 	case categoriesModeFormNew, categoriesModeFormEdit:

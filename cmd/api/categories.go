@@ -19,6 +19,7 @@ type Category struct {
 	Budget       decimal.Decimal `json:"budget"`
 	UserID       uuid.UUID       `json:"user_id"`
 	GroupID      uuid.UUID       `json:"group_id"`
+	GroupName    string          `json:"group_name"`
 }
 
 func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
@@ -74,12 +75,6 @@ func (cfg *apiConfig) createCategory(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// dbBudgetFloat, err := strconv.ParseFloat(dbCategory.Budget, 64)
-	// if err != nil {
-	// 	respondWithError(w, http.StatusInternalServerError, "Couldn't parse budget", err)
-	// 	return
-	// }
-
 	respondWithJSON(w, http.StatusCreated, response{
 		Category: Category{
 			ID:           dbCategory.ID,
@@ -101,7 +96,7 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dbCategories, err := cfg.db.GetCategoriesByUser(req.Context(), userID)
+	dbCategories, err := cfg.db.GetUserCategoriesDetailed(req.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get categories", err)
 		return
@@ -109,11 +104,6 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 
 	categories := []Category{}
 	for _, category := range dbCategories {
-		// budgetFloat, err := strconv.ParseFloat(category.Budget, 64)
-		// if err != nil {
-		// 	log.Printf("Error parsing category budget: %v", category.ID)
-		// 	continue
-		// }
 
 		categories = append(categories, Category{
 			ID:           category.ID,
@@ -123,6 +113,7 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 			Budget:       category.Budget,
 			UserID:       category.UserID,
 			GroupID:      category.GroupID.UUID,
+			GroupName:    category.GroupName,
 		})
 	}
 

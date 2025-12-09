@@ -206,6 +206,14 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.categoriesModel.cursor = 0
 		return m, nil
 
+	case loadCategoryTxsSubmittedMsg:
+		return m, loadCategoryTxsCmd(m.categoriesAPI, msg.categoryID)
+
+	case loadCategoryTxsMsg:
+		var cmd tea.Cmd
+		m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+		return m, cmd
+
 	case categoryCreateSubmittedMsg:
 		budgetDecimal, err := decimal.NewFromString(msg.BudgetText)
 		if err != nil {

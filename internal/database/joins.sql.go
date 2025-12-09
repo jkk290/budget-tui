@@ -92,6 +92,58 @@ func (q *Queries) GetUserAccountsBalances(ctx context.Context, userID uuid.UUID)
 	return items, nil
 }
 
+const getUserCategoriesDetailed = `-- name: GetUserCategoriesDetailed :many
+SELECT categories.id, categories.category_name, categories.created_at, categories.updated_at, categories.budget, categories.user_id, categories.group_id,
+groups.group_name
+FROM categories
+INNER JOIN groups
+ON groups.id = categories.group_id
+WHERE categories.user_id = $1
+`
+
+type GetUserCategoriesDetailedRow struct {
+	ID           uuid.UUID
+	CategoryName string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Budget       decimal.Decimal
+	UserID       uuid.UUID
+	GroupID      uuid.NullUUID
+	GroupName    string
+}
+
+func (q *Queries) GetUserCategoriesDetailed(ctx context.Context, userID uuid.UUID) ([]GetUserCategoriesDetailedRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserCategoriesDetailed, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserCategoriesDetailedRow
+	for rows.Next() {
+		var i GetUserCategoriesDetailedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryName,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Budget,
+			&i.UserID,
+			&i.GroupID,
+			&i.GroupName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserTransactions = `-- name: GetUserTransactions :many
 SELECT transactions.id, transactions.amount, transactions.tx_description, transactions.tx_date, transactions.created_at, transactions.updated_at, transactions.posted, transactions.account_id, transactions.category_id,
 accounts.account_name,
