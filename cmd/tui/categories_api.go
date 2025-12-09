@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -61,6 +62,9 @@ func loadCategoriesCmd(api CategoriesAPI) tea.Cmd {
 	}
 }
 
+type categoriesNewRequestedMsg struct{}
+type categoriesEditRequestedMsg struct{}
+
 type CreateCategoryRequest struct {
 	Name    string          `json:"category_name"`
 	Budget  decimal.Decimal `json:"budget"`
@@ -78,4 +82,160 @@ func (c *categoriesClient) CreateCategory(ctx context.Context, req CreateCategor
 		return Category{}, err
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
+		return Category{}, fmt.Errorf("Failed to create category: %s", res.Status)
+	}
+
+	var category Category
+	if err := json.NewDecoder(res.Body).Decode(&category); err != nil {
+		return Category{}, err
+	}
+
+	return category, nil
 }
+
+type categoryCreatedMsg struct {
+	category Category
+	err      error
+}
+
+func createCategoryCmd(api CategoriesAPI, req CreateCategoryRequest) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		category, err := api.CreateCategory(ctx, req)
+		return categoryCreatedMsg{
+			category: category,
+			err:      err,
+		}
+	}
+}
+
+type categoryCreateSubmittedMsg struct {
+	Name       string
+	BudgetText string
+	GroupID    uuid.UUID
+}
+
+func submitCreateCategoryMsg(name, budget string, groupID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return categoryCreateSubmittedMsg{
+			Name:       name,
+			BudgetText: budget,
+			GroupID:    groupID,
+		}
+	}
+}
+
+type UpdateCategoryRequest struct {
+	Name    string          `json:"category_name"`
+	Budget  decimal.Decimal `json:"budget"`
+	GroupID uuid.UUID       `json:"group_id"`
+}
+
+func (c *categoriesClient) UpdateCategory(ctx context.Context, id uuid.UUID, req UpdateCategoryRequest) (Category, error) {
+	httpReq, err := c.client.newJSONRequest(ctx, http.MethodPut, "/categories/"+id.String(), req)
+	if err != nil {
+		return Category{}, err
+	}
+
+	res, err := c.client.httpClient.Do(httpReq)
+	if err != nil {
+		return Category{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return Category{}, fmt.Errorf("Failed updating category: %s", res.Status)
+	}
+
+	var category Category
+	if err := json.NewDecoder(res.Body).Decode(&category); err != nil {
+		return Category{}, err
+	}
+
+	return category, nil
+}
+
+type categoryUpdatedMsg struct {
+	category Category
+	err      error
+}
+
+func updateCategoryCmd(api CategoriesAPI, id uuid.UUID, req UpdateCategoryRequest) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		category, err := api.UpdateCategory(ctx, id, req)
+		return categoryUpdatedMsg{
+			category: category,
+			err:      err,
+		}
+	}
+}
+
+type categoryUpdateSubmittedMsg struct {
+	CategoryID uuid.UUID
+	Name       string
+	BudgetText string
+	GroupID    uuid.UUID
+}
+
+func submitUpdateCategoryMsg(id uuid.UUID, name, budget string, groupID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return categoryUpdateSubmittedMsg{
+			CategoryID: id,
+			Name:       name,
+			BudgetText: budget,
+			GroupID:    groupID,
+		}
+	}
+}
+
+func (c *categoriesClient) DeleteCategory(ctx context.Context, id uuid.UUID) error {
+	req, err := c.client.newRequest(ctx, http.MethodDelete, "/categories/"+id.String(), nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := c.client.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed deleting category: %s", res.Status)
+	}
+
+	return nil
+}
+
+type categoryDeletedMsg struct {
+	categoryID uuid.UUID
+	err        error
+}
+
+func deleteCategoryCmd(api CategoriesAPI, id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		err := api.DeleteCategory(ctx, id)
+		return categoryDeletedMsg{
+			categoryID: id,
+			err:        err,
+		}
+	}
+}
+
+type categoryDeleteSubmittedMsg struct {
+	categoryID uuid.UUID
+}
+
+func submitDeleteCategoryMsg(id uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		return categoryDeleteSubmittedMsg{
+			categoryID: id,
+		}
+	}
+}
+
+type categoriesReloadRequestedMsg struct{}

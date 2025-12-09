@@ -24,7 +24,8 @@ ORDER BY tx_date::date DESC, tx_date DESC;
 
 -- name: GetTransactionsByCategory :many
 SELECT * FROM transactions
-WHERE category_id = $1;
+WHERE category_id = $1
+ORDER BY tx_date::date DESC, tx_date DESC;
 
 -- name: UpdateTransaction :one
 UPDATE transactions

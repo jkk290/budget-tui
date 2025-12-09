@@ -142,6 +142,7 @@ func (q *Queries) GetTransactionsByAccount(ctx context.Context, accountID uuid.U
 const getTransactionsByCategory = `-- name: GetTransactionsByCategory :many
 SELECT id, amount, tx_description, tx_date, created_at, updated_at, posted, account_id, category_id FROM transactions
 WHERE category_id = $1
+ORDER BY tx_date::date DESC, tx_date DESC
 `
 
 func (q *Queries) GetTransactionsByCategory(ctx context.Context, categoryID uuid.NullUUID) ([]Transaction, error) {

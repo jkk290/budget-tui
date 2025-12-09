@@ -62,6 +62,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/categories", cfg.createCategory)
 	mux.HandleFunc("PUT /api/v1/categories/{categoryID}", cfg.updateCategory)
 	mux.HandleFunc("DELETE /api/v1/categories/{categoryID}", cfg.deleteCategory)
+	mux.HandleFunc("GET /api/vi/categories/{categoryID}/transactions", cfg.getCategoryTransactions)
 
 	mux.HandleFunc("GET /api/v1/transactions", cfg.getUserTransactions)
 	mux.HandleFunc("POST /api/v1/transactions", cfg.addTransaction)

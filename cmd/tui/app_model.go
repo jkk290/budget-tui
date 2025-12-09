@@ -54,6 +54,7 @@ type model struct {
 	accountsAPI     AccountsAPI
 	transactionsAPI TransactionsAPI
 	categoriesAPI   CategoriesAPI
+	groupsAPI       GroupsAPI
 
 	navItems  []string
 	navCursor int
@@ -62,6 +63,7 @@ type model struct {
 
 	// budgetModel budgetModel
 	categoriesModel   categoriesModel
+	groupsModel       groupsModel
 	accountsModel     accountsModel
 	transactionsModel transactionsModel
 
@@ -93,6 +95,8 @@ func initialModel(client *Client) model {
 		transactionsAPI:   client.Transactions(),
 		categoriesModel:   initialCategoriesModel(),
 		categoriesAPI:     client.Categories(),
+		groupsModel:       initialGroupsModel(),
+		groupsAPI:         client.Groups(),
 	}
 }
 
@@ -185,6 +189,10 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	// Categories
+	case categoriesReloadRequestedMsg:
+		cmd := loadCategoriesCmd(m.categoriesAPI)
+		return m, cmd
+
 	case categoriesLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -195,6 +203,126 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.categoriesModel.categories = msg.categories
+		m.categoriesModel.cursor = 0
+		return m, nil
+
+	case categoryCreateSubmittedMsg:
+		budgetDecimal, err := decimal.NewFromString(msg.BudgetText)
+		if err != nil {
+			var cmd tea.Cmd
+			m.categoriesModel, cmd = m.categoriesModel.Update(categoryCreatedMsg{
+				err: fmt.Errorf("invalid budget: %w", err),
+			})
+			return m, cmd
+		}
+		req := CreateCategoryRequest{
+			Name:    msg.Name,
+			Budget:  budgetDecimal,
+			GroupID: msg.GroupID,
+		}
+		return m, createCategoryCmd(m.categoriesAPI, req)
+
+	case categoryCreatedMsg:
+		var cmd tea.Cmd
+		m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+		return m, cmd
+
+	case categoryUpdateSubmittedMsg:
+		budgetDecimal, err := decimal.NewFromString(msg.BudgetText)
+		if err != nil {
+			var cmd tea.Cmd
+			m.categoriesModel, cmd = m.categoriesModel.Update(categoryUpdatedMsg{
+				err: fmt.Errorf("invalid budget: %w", err),
+			})
+			return m, cmd
+		}
+
+		req := UpdateCategoryRequest{
+			Name:    msg.Name,
+			Budget:  budgetDecimal,
+			GroupID: msg.GroupID,
+		}
+		return m, updateCategoryCmd(m.categoriesAPI, msg.CategoryID, req)
+
+	case categoryUpdatedMsg:
+		var cmd tea.Cmd
+		m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+		return m, cmd
+
+	case categoryDeleteSubmittedMsg:
+		return m, deleteCategoryCmd(m.categoriesAPI, msg.categoryID)
+
+	case categoryDeletedMsg:
+		var cmd tea.Cmd
+		m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+		return m, cmd
+
+	case categoriesNewRequestedMsg:
+		groupOptions := make([]catGroupOption, len(m.groupsModel.groups))
+		for i, group := range m.groupsModel.groups {
+			groupOptions[i] = catGroupOption{
+				ID:   group.ID,
+				Name: group.GroupName,
+			}
+		}
+
+		cm := m.categoriesModel
+		cm.groupOptions = groupOptions
+		cm.mode = categoriesModeFormNew
+		cm.formFieldCursor = catFormFieldName
+		cm.formEditing = false
+		cm.nameInput.SetValue("")
+		cm.nameInput.Blur()
+		cm.budgetInput.SetValue("")
+		cm.budgetInput.Blur()
+		cm.formGroupIndex = 0
+		cm.errorMsg = ""
+		m.categoriesModel = cm
+		return m, nil
+
+	case categoriesEditRequestedMsg:
+		groupOptions := make([]catGroupOption, len(m.groupsModel.groups))
+		for i, group := range m.groupsModel.groups {
+			groupOptions[i] = catGroupOption{
+				ID:   group.ID,
+				Name: group.GroupName,
+			}
+		}
+
+		cm := m.categoriesModel
+		currentCat := cm.categories[cm.cursor]
+		cm.groupOptions = groupOptions
+		cm.mode = categoriesModeFormEdit
+		cm.formFieldCursor = catFormFieldName
+		cm.formEditing = false
+		cm.nameInput.SetValue(currentCat.CategoryName)
+		cm.nameInput.Blur()
+		cm.budgetInput.SetValue(currentCat.Budget.String())
+		cm.budgetInput.Blur()
+		cm.formGroupIndex = 0
+		for i, option := range groupOptions {
+			if option.ID == currentCat.GroupID {
+				cm.formGroupIndex = i
+				break
+			}
+		}
+
+		cm.errorMsg = ""
+		m.categoriesModel = cm
+		return m, nil
+
+	// Groups
+	case groupsLoadedMsg:
+		if msg.err != nil {
+			var cmd tea.Cmd
+			m.groupsModel, cmd = m.groupsModel.Update(groupsLoadedMsg{
+				err: msg.err,
+			})
+			return m, cmd
+		}
+
+		m.groupsModel.groups = msg.groups
+		// m.groupsModel.cursor = 0
 		return m, nil
 
 	// Transactions
@@ -450,6 +578,9 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			case sectionBudget:
 			case sectionCategories:
+				var cmd tea.Cmd
+				m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+				return m, cmd
 			case sectionTransactions:
 				var cmd tea.Cmd
 				m.transactionsModel, cmd = m.transactionsModel.Update(msg)
@@ -485,7 +616,7 @@ func (m model) mainView() string {
 	case sectionBudget:
 		main = "Budget View\n"
 	case sectionCategories:
-		main = "Categories View\n"
+		main = m.categoriesModel.View()
 	case sectionAccounts:
 		main = m.accountsModel.View()
 	case sectionTransactions:

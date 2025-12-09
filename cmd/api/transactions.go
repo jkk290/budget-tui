@@ -323,3 +323,56 @@ func (cfg *apiConfig) getAccountTransactions(w http.ResponseWriter, req *http.Re
 
 	respondWithJSON(w, http.StatusOK, transactions)
 }
+
+func (cfg *apiConfig) getCategoryTransactions(w http.ResponseWriter, req *http.Request) {
+	userID, err := checkToken(req.Header, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	categoryIDString := req.PathValue("categoryID")
+	categoryID, err := uuid.Parse(categoryIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid category ID", err)
+		return
+	}
+
+	dbCategory, err := cfg.db.GetCategoryByID(req.Context(), categoryID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get category", err)
+		return
+	}
+	if dbCategory.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Can't view category transactions", errors.New("unauthorized"))
+		return
+	}
+
+	catId := uuid.NullUUID{
+		UUID:  dbCategory.ID,
+		Valid: true,
+	}
+
+	dbTransactions, err := cfg.db.GetTransactionsByCategory(req.Context(), catId)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get transactions", err)
+		return
+	}
+
+	transactions := []Transaction{}
+	for _, transaction := range dbTransactions {
+		transactions = append(transactions, Transaction{
+			ID:            transaction.ID,
+			Amount:        transaction.Amount,
+			TxDescription: transaction.TxDescription,
+			TxDate:        transaction.TxDate,
+			CreatedAt:     transaction.CreatedAt,
+			UpdatedAt:     transaction.UpdatedAt,
+			Posted:        transaction.Posted,
+			AccountID:     transaction.AccountID,
+			CategoryID:    transaction.CategoryID.UUID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, transactions)
+}

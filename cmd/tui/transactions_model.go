@@ -417,8 +417,8 @@ func (m transactionsModel) View() string {
 			return " "
 		}
 
-		s += fmt.Sprintf("%s [ Yes ]\n", currentRow(confirmYes))
-		s += fmt.Sprintf("%s [ Cancel ]\n", currentRow(confirmCancel))
+		s += fmt.Sprintf("%s [ Yes ]\n", currentRow(txConfirmYes))
+		s += fmt.Sprintf("%s [ Cancel ]\n", currentRow(txConfirmCancel))
 
 		s += "\n(Use 'j'/'k' to move, 'enter' to select, 'esc' to cancel)"
 
