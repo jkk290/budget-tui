@@ -88,7 +88,7 @@ func initialModel(client *Client) model {
 		loginUsername: username,
 		loginPassword: password,
 
-		navItems:          []string{"Budget", "Categories", "Groups", "Accounts", "Transactions"},
+		navItems:          []string{"Budget", "Categories", "Category Groups", "Accounts", "Transactions"},
 		navCursor:         0,
 		currentSection:    sectionBudget,
 		accountsModel:     initialAccountModel(),

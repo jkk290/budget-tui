@@ -248,7 +248,7 @@ func (m groupsModel) Update(msg tea.Msg) (groupsModel, tea.Cmd) {
 func (m groupsModel) View() string {
 	switch m.mode {
 	case groupsModeList:
-		s := "Groups\n\n"
+		s := "Category Groups\n\n"
 		s += m.errorView()
 		for i, group := range m.groups {
 			cursor := " "

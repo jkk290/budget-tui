@@ -320,7 +320,7 @@ func (m categoriesModel) View() string {
 		if catGroup == "" {
 			catGroup = "No Group"
 		}
-		s += fmt.Sprintf("Group: %s\n\n", cat.GroupName)
+		s += fmt.Sprintf("Group: %s\n\n", catGroup)
 
 		s += "Transactions\n\n"
 		for _, transaction := range m.catTxs {
