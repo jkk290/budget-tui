@@ -69,6 +69,8 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/transactions/{transactionID}", cfg.updateTransaction)
 	mux.HandleFunc("DELETE /api/v1/transactions/{transactionID}", cfg.deleteTransaction)
 
+	mux.HandleFunc("GET /api/v1/budget", cfg.handlerGetBudgetOverview)
+
 	srv := &http.Server{
 		Handler: mux,
 		Addr:    ":" + port,

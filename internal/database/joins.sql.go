@@ -93,6 +93,70 @@ func (q *Queries) GetUserAccountsBalances(ctx context.Context, userID uuid.UUID)
 	return items, nil
 }
 
+const getUserBudgetOverviewForMonth = `-- name: GetUserBudgetOverviewForMonth :many
+SELECT categories.id AS category_id,
+categories.category_name,
+categories.budget,
+categories.group_id,
+groups.group_name,
+COALESCE(SUM(-transactions.amount), 0)::numeric AS total_spent
+FROM categories
+LEFT JOIN groups ON groups.id = categories.group_id
+LEFT JOIN transactions
+ON transactions.category_id = categories.id
+AND transactions.tx_date >= $2
+AND transactions.tx_date < $3
+WHERE categories.user_id = $1
+GROUP BY categories.id, categories.category_name, categories.budget,
+categories.group_id, groups.group_name
+ORDER BY groups.group_name NULLS LAST, categories.category_name
+`
+
+type GetUserBudgetOverviewForMonthParams struct {
+	UserID   uuid.UUID
+	TxDate   time.Time
+	TxDate_2 time.Time
+}
+
+type GetUserBudgetOverviewForMonthRow struct {
+	CategoryID   uuid.UUID
+	CategoryName string
+	Budget       decimal.Decimal
+	GroupID      uuid.NullUUID
+	GroupName    sql.NullString
+	TotalSpent   decimal.Decimal
+}
+
+func (q *Queries) GetUserBudgetOverviewForMonth(ctx context.Context, arg GetUserBudgetOverviewForMonthParams) ([]GetUserBudgetOverviewForMonthRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserBudgetOverviewForMonth, arg.UserID, arg.TxDate, arg.TxDate_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserBudgetOverviewForMonthRow
+	for rows.Next() {
+		var i GetUserBudgetOverviewForMonthRow
+		if err := rows.Scan(
+			&i.CategoryID,
+			&i.CategoryName,
+			&i.Budget,
+			&i.GroupID,
+			&i.GroupName,
+			&i.TotalSpent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserCategoriesDetailed = `-- name: GetUserCategoriesDetailed :many
 SELECT categories.id, categories.category_name, categories.created_at, categories.updated_at, categories.budget, categories.user_id, categories.group_id,
 groups.group_name

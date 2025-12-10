@@ -63,7 +63,8 @@ type model struct {
 
 	currentSection section
 
-	// budgetModel budgetModel
+	budgetModel       budgetModel
+	budgetAPI         BudgetAPI
 	categoriesModel   categoriesModel
 	groupsModel       groupsModel
 	accountsModel     accountsModel
@@ -91,6 +92,8 @@ func initialModel(client *Client) model {
 		navItems:          []string{"Budget", "Categories", "Category Groups", "Accounts", "Transactions"},
 		navCursor:         0,
 		currentSection:    sectionBudget,
+		budgetModel:       initialBudgetModel(),
+		budgetAPI:         client.Budget(),
 		accountsModel:     initialAccountModel(),
 		accountsAPI:       client.Accounts(),
 		transactionsModel: initialTransactionsModel(),
@@ -188,6 +191,16 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case accountDeletedMsg:
 		var cmd tea.Cmd
 		m.accountsModel, cmd = m.accountsModel.Update(msg)
+		return m, cmd
+
+	// Budget
+	case budgetReloadRequestedMsg:
+		cmd := loadBudgetCmd(m.budgetAPI)
+		return m, cmd
+
+	case budgetLoadedMsg:
+		var cmd tea.Cmd
+		m.budgetModel, cmd = m.budgetModel.Update(msg)
 		return m, cmd
 
 	// Categories
@@ -623,6 +636,9 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				m.currentSection = section(m.navCursor)
 				m.focus = focusMain
+				if m.currentSection == sectionBudget {
+					return m, loadBudgetCmd(m.budgetAPI)
+				}
 			}
 		case focusMain:
 			switch m.currentSection {
@@ -631,6 +647,9 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.accountsModel, cmd = m.accountsModel.Update(msg)
 				return m, cmd
 			case sectionBudget:
+				var cmd tea.Cmd
+				m.budgetModel, cmd = m.budgetModel.Update(msg)
+				return m, cmd
 			case sectionCategories:
 				var cmd tea.Cmd
 				m.categoriesModel, cmd = m.categoriesModel.Update(msg)
@@ -672,7 +691,7 @@ func (m model) mainView() string {
 
 	switch m.currentSection {
 	case sectionBudget:
-		main = "Budget View\n"
+		main = m.budgetModel.View()
 	case sectionCategories:
 		main = m.categoriesModel.View()
 	case sectionGroups:

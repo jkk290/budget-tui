@@ -38,3 +38,21 @@ FROM categories
 LEFT JOIN groups
 ON groups.id = categories.group_id
 WHERE categories.user_id = $1;
+
+-- name: GetUserBudgetOverviewForMonth :many
+SELECT categories.id AS category_id,
+categories.category_name,
+categories.budget,
+categories.group_id,
+groups.group_name,
+COALESCE(SUM(-transactions.amount), 0)::numeric AS total_spent
+FROM categories
+LEFT JOIN groups ON groups.id = categories.group_id
+LEFT JOIN transactions
+ON transactions.category_id = categories.id
+AND transactions.tx_date >= $2
+AND transactions.tx_date < $3
+WHERE categories.user_id = $1
+GROUP BY categories.id, categories.category_name, categories.budget,
+categories.group_id, groups.group_name
+ORDER BY groups.group_name NULLS LAST, categories.category_name;
