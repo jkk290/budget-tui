@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,7 +97,7 @@ const getUserCategoriesDetailed = `-- name: GetUserCategoriesDetailed :many
 SELECT categories.id, categories.category_name, categories.created_at, categories.updated_at, categories.budget, categories.user_id, categories.group_id,
 groups.group_name
 FROM categories
-INNER JOIN groups
+LEFT JOIN groups
 ON groups.id = categories.group_id
 WHERE categories.user_id = $1
 `
@@ -109,7 +110,7 @@ type GetUserCategoriesDetailedRow struct {
 	Budget       decimal.Decimal
 	UserID       uuid.UUID
 	GroupID      uuid.NullUUID
-	GroupName    string
+	GroupName    sql.NullString
 }
 
 func (q *Queries) GetUserCategoriesDetailed(ctx context.Context, userID uuid.UUID) ([]GetUserCategoriesDetailedRow, error) {

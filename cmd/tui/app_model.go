@@ -22,6 +22,7 @@ type navigationItem int
 const (
 	navBudget navigationItem = iota
 	navCategories
+	navGroups
 	navAccounts
 	navTransactions
 )
@@ -31,6 +32,7 @@ type section int
 const (
 	sectionBudget section = iota
 	sectionCategories
+	sectionGroups
 	sectionAccounts
 	sectionTransactions
 )
@@ -86,7 +88,7 @@ func initialModel(client *Client) model {
 		loginUsername: username,
 		loginPassword: password,
 
-		navItems:          []string{"Budget", "Categories", "Accounts", "Transactions"},
+		navItems:          []string{"Budget", "Categories", "Groups", "Accounts", "Transactions"},
 		navCursor:         0,
 		currentSection:    sectionBudget,
 		accountsModel:     initialAccountModel(),
@@ -274,6 +276,11 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		groupOptions = append(groupOptions, catGroupOption{
+			ID:   uuid.Nil,
+			Name: "None",
+		})
+
 		cm := m.categoriesModel
 		cm.groupOptions = groupOptions
 		cm.mode = categoriesModeFormNew
@@ -296,6 +303,11 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Name: group.GroupName,
 			}
 		}
+
+		groupOptions = append(groupOptions, catGroupOption{
+			ID:   uuid.Nil,
+			Name: "None",
+		})
 
 		cm := m.categoriesModel
 		currentCat := cm.categories[cm.cursor]
@@ -320,6 +332,10 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// Groups
+	case groupsReloadRequestedMsg:
+		cmd := loadGroupsCmd(m.groupsAPI)
+		return m, cmd
+
 	case groupsLoadedMsg:
 		if msg.err != nil {
 			var cmd tea.Cmd
@@ -330,8 +346,38 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.groupsModel.groups = msg.groups
-		// m.groupsModel.cursor = 0
+		m.groupsModel.cursor = 0
 		return m, nil
+
+	case groupCreateSubmittedMsg:
+		req := CreateGroupRequest{
+			Name: msg.Name,
+		}
+		return m, createGroupCmd(m.groupsAPI, req)
+
+	case groupCreatedMsg:
+		var cmd tea.Cmd
+		m.groupsModel, cmd = m.groupsModel.Update(msg)
+		return m, cmd
+
+	case groupUpdateSubmittedMsg:
+		req := UpdateGroupRequest{
+			Name: msg.Name,
+		}
+		return m, updateGroupCmd(m.groupsAPI, msg.GroupID, req)
+
+	case groupUpdatedMsg:
+		var cmd tea.Cmd
+		m.groupsModel, cmd = m.groupsModel.Update(msg)
+		return m, cmd
+
+	case groupDeleteSubmittedMsg:
+		return m, deleteGroupCmd(m.groupsAPI, msg.groupID)
+
+	case groupDeletedMsg:
+		var cmd tea.Cmd
+		m.groupsModel, cmd = m.groupsModel.Update(msg)
+		return m, cmd
 
 	// Transactions
 	case transactionsReloadRequestedMsg:
@@ -589,6 +635,10 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.categoriesModel, cmd = m.categoriesModel.Update(msg)
 				return m, cmd
+			case sectionGroups:
+				var cmd tea.Cmd
+				m.groupsModel, cmd = m.groupsModel.Update(msg)
+				return m, cmd
 			case sectionTransactions:
 				var cmd tea.Cmd
 				m.transactionsModel, cmd = m.transactionsModel.Update(msg)
@@ -625,6 +675,8 @@ func (m model) mainView() string {
 		main = "Budget View\n"
 	case sectionCategories:
 		main = m.categoriesModel.View()
+	case sectionGroups:
+		main = m.groupsModel.View()
 	case sectionAccounts:
 		main = m.accountsModel.View()
 	case sectionTransactions:

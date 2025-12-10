@@ -113,7 +113,7 @@ func (cfg *apiConfig) getCategories(w http.ResponseWriter, req *http.Request) {
 			Budget:       category.Budget,
 			UserID:       category.UserID,
 			GroupID:      category.GroupID.UUID,
-			GroupName:    category.GroupName,
+			GroupName:    category.GroupName.String,
 		})
 	}
 
@@ -180,7 +180,7 @@ func (cfg *apiConfig) updateCategory(w http.ResponseWriter, req *http.Request) {
 
 	if params.GroupID != updatedGroup.UUID {
 		updatedGroup.UUID = params.GroupID
-		updatedGroup.Valid = true
+		updatedGroup.Valid = (params.GroupID != uuid.Nil)
 	}
 
 	updatedCategory, err := cfg.db.UpdateCategory(req.Context(), database.UpdateCategoryParams{

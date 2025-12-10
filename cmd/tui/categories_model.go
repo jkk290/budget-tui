@@ -316,6 +316,10 @@ func (m categoriesModel) View() string {
 		s := "Category Details\n\n"
 		s += fmt.Sprintf("Name: %s\n", cat.CategoryName)
 		s += fmt.Sprintf("Budget: $%s\n", cat.Budget.String())
+		catGroup := cat.GroupName
+		if catGroup == "" {
+			catGroup = "No Group"
+		}
 		s += fmt.Sprintf("Group: %s\n\n", cat.GroupName)
 
 		s += "Transactions\n\n"

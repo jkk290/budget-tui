@@ -35,6 +35,6 @@ ORDER BY transactions.tx_date DESC;
 SELECT categories.*,
 groups.group_name
 FROM categories
-INNER JOIN groups
+LEFT JOIN groups
 ON groups.id = categories.group_id
 WHERE categories.user_id = $1;
