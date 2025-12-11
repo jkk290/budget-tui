@@ -1,6 +1,12 @@
-# budget-tui
+# Budget-TUI
 
-A full-stack budget management application built with Go, featuring a REST API backend and terminal-based user interface for managing personal finances.
+A budgeting application built in Go, combining a REST API backend with a terminal-based user interface. This project serves as a hands-on way to practice designing API services, building API clients, and working with relational databases.
+
+Current Implementation
+Uses a Go REST API server, an API client, and a PostgreSQL database to explore full-stack architecture patterns and data flow between backend and TUI layers.
+
+Next Implementation
+Plans to switch to a SQLite database and refactor the TUI to perform CRUD operations directly against the database—an exploration of a simplified, single-application architecture without a separate API layer.
 
 ## API Documentation
 
