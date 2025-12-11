@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -70,7 +71,9 @@ type model struct {
 	accountsModel     accountsModel
 	transactionsModel transactionsModel
 
-	focus focus
+	focus  focus
+	width  int
+	height int
 }
 
 func initialModel(client *Client) model {
@@ -110,6 +113,12 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+	}
 	switch m.screen {
 	case screenLogin:
 		return m.updateLogin(msg)
@@ -123,7 +132,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	// Accounts
 	case accountsReloadRequestedMsg:
 		cmd := loadAccountsCmd(m.accountsAPI)
@@ -687,37 +695,83 @@ func (m model) View() string {
 func (m model) mainView() string {
 	sidebar := m.navView()
 
-	var main string
+	content := m.mainContentView()
+	main := mainStyle.Render(content)
 
-	switch m.currentSection {
-	case sectionBudget:
-		main = m.budgetModel.View()
-	case sectionCategories:
-		main = m.categoriesModel.View()
-	case sectionGroups:
-		main = m.groupsModel.View()
-	case sectionAccounts:
-		main = m.accountsModel.View()
-	case sectionTransactions:
-		main = m.transactionsModel.View()
+	if m.width > 0 {
+		remainingWidth := m.width - lipgloss.Width(sidebar)
+		if remainingWidth < 0 {
+			remainingWidth = 0
+		}
+		main = mainStyle.
+			Width(remainingWidth).
+			Render(content)
 	}
 
-	return sidebar + "\n---\n\n" + main
+	row := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		sidebar,
+		main,
+	)
+
+	view := row
+	if m.width > 0 && m.height > 0 {
+		view = appStyle.
+			Width(m.width).
+			Height(m.height).
+			Render(row)
+	} else {
+		view = appStyle.Render(row)
+	}
+
+	return view
+}
+
+func (m model) mainContentView() string {
+	switch m.currentSection {
+	case sectionBudget:
+		return m.budgetModel.View()
+	case sectionCategories:
+		return m.categoriesModel.View()
+	case sectionGroups:
+		return m.groupsModel.View()
+	case sectionAccounts:
+		return m.accountsModel.View()
+	case sectionTransactions:
+		return m.transactionsModel.View()
+	default:
+		return ""
+	}
 }
 
 func (m model) navView() string {
-	s := "BudgeTUI\n\n"
+	title := sidebarTitleStyle.Render("BudgeTUI")
 
+	var items []string
 	for i, navItem := range m.navItems {
-		cursor := " "
+		style := sidebarItemStyle
+		prefix := "  "
+
 		if m.navCursor == i {
-			cursor = ">"
+			style = sidebarItemActiveStyle
+			prefix = "▶ "
 		}
 
-		s += fmt.Sprintf("%s %s\n", cursor, navItem)
+		items = append(items, style.Render(prefix+navItem))
 	}
 
-	s += "\n(Press 'q' to quit, 'tab' to switch between nav bar and main content)\n"
+	navList := lipgloss.JoinVertical(lipgloss.Left, items...)
 
-	return s
+	helpText := helpStyle.Render("q: quit • tab: switch focus")
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		title,
+		"",
+		navList,
+		"",
+		helpText,
+	)
+
+	return sidebarStyle.Render(content)
 }
