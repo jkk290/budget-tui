@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type loginResultMsg struct {
@@ -107,6 +108,7 @@ func (m model) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.categoriesAPI = m.client.Categories()
 		m.groupsAPI = m.client.Groups()
 		var cmds []tea.Cmd
+		cmds = append(cmds, loadBudgetCmd(m.budgetAPI))
 		cmds = append(cmds, loadAccountsCmd(m.accountsAPI))
 		cmds = append(cmds, loadTransactionsCmd(m.transactionsAPI))
 		cmds = append(cmds, loadCategoriesCmd(m.categoriesAPI))
@@ -120,12 +122,45 @@ func (m model) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) loginView() string {
-	s := "BudgeTUI Login\n\n"
-	s += m.loginUsername.View() + "\n"
-	s += m.loginPassword.View() + "\n\n"
-	s += "(Press 'tab' to switch between username/password, 'enter' on password to log in)\n"
+	loginBoxWidth := m.width
+	title := loginTitleStyle.
+		Width(loginBoxWidth).
+		Render("BudgeTUI Login")
+
+	usernameInput := m.loginUsername.View()
+	passwordInput := m.loginPassword.View()
+	helpText := helpStyle.
+		Width(loginBoxWidth).
+		Render("(tab: switch between username/password • enter: on password to log in)")
+
+	var errMsg string
 	if m.loginErr != "" {
-		s += "\nError: " + m.loginErr + "\n"
+		errMsg = "Error: " + m.loginErr
 	}
-	return s
+	loginErr := errorStyle.Render(errMsg)
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		title,
+		loginErr,
+		usernameInput,
+		passwordInput,
+		"",
+		helpText,
+	)
+
+	loginBox := loginStyle.
+		Width(loginBoxWidth).
+		Render(content)
+	fullscreen := appBGStyle.
+		Width(m.width).
+		Height(m.height).
+		Render(
+			lipgloss.Place(m.width, m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				loginBox,
+			),
+		)
+	return fullscreen
 }

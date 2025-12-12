@@ -613,8 +613,10 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 				isEditing = m.accountsModel.IsEditing()
 			case sectionTransactions:
 				isEditing = m.transactionsModel.IsEditing()
-				// case sectionCategories:
-				// 	isEditing = m.categoriesModel.isEditing()
+			case sectionCategories:
+				isEditing = m.categoriesModel.IsEditing()
+			case sectionGroups:
+				isEditing = m.groupsModel.IsEditing()
 			}
 			if !isEditing {
 				return m, tea.Quit

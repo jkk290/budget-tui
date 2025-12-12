@@ -16,6 +16,18 @@ var (
 var (
 	appStyle = lipgloss.NewStyle().Background(colorBg)
 
+	appBGStyle = lipgloss.NewStyle().
+			Background(colorBg)
+
+	loginStyle = lipgloss.NewStyle().
+			Background(colorBg).
+			Foreground(colorText).
+			Padding(1, 2)
+
+	loginTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorAccent)
+
 	sidebarStyle = lipgloss.NewStyle().
 			Background(colorSidebarBg).
 			Foreground(colorText).
