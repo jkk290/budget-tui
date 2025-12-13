@@ -14,10 +14,14 @@ var (
 )
 
 var (
-	appStyle = lipgloss.NewStyle().Background(colorBg)
-
 	appBGStyle = lipgloss.NewStyle().
 			Background(colorBg)
+
+	navBaseStyle = baseContainerStyle().
+			Width(sidebarWidth).
+			Background(colorSidebarBg)
+
+	navFocusedStyle = withFocus(navBaseStyle)
 
 	loginStyle = lipgloss.NewStyle().
 			Background(colorBg).
@@ -27,12 +31,6 @@ var (
 	loginTitleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorAccent)
-
-	sidebarStyle = lipgloss.NewStyle().
-			Background(colorSidebarBg).
-			Foreground(colorText).
-			Padding(1, 2).
-			Width(sidebarWidth)
 
 	sidebarTitleStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -45,9 +43,9 @@ var (
 				Foreground(colorAccent).
 				Bold(true)
 
-	mainStyle = lipgloss.NewStyle().
-			Padding(1, 2).
-			Foreground(colorText)
+	mainBaseStyle = baseContainerStyle()
+
+	mainFocusedStyle = withFocus(mainBaseStyle)
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
@@ -55,3 +53,15 @@ var (
 	errorStyle = lipgloss.NewStyle().
 			Foreground(colorDanger)
 )
+
+func baseContainerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(colorBg).
+		Foreground(colorText).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorMuted)
+}
+
+func withFocus(style lipgloss.Style) lipgloss.Style {
+	return style.BorderForeground(colorAccent)
+}

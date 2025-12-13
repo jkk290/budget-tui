@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
@@ -49,6 +50,8 @@ const (
 type model struct {
 	jwt           string
 	screen        screen
+	mainViewport  viewport.Model
+	viewportReady bool
 	loginErr      string
 	loginUsername textinput.Model
 	loginPassword textinput.Model
@@ -105,6 +108,7 @@ func initialModel(client *Client) model {
 		categoriesAPI:     client.Categories(),
 		groupsModel:       initialGroupsModel(),
 		groupsAPI:         client.Groups(),
+		viewportReady:     false,
 	}
 }
 
@@ -117,6 +121,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		borderPaddingSize := 4
+
+		if !m.viewportReady {
+			sidebarRenderedWidth := lipgloss.Width(navBaseStyle.Render(m.navView()))
+
+			viewportWidth := m.width - sidebarRenderedWidth - borderPaddingSize
+			viewportHeight := m.height - borderPaddingSize
+			m.mainViewport = viewport.New(viewportWidth, viewportHeight)
+			m.viewportReady = true
+		} else {
+			sidebarRenderedWidth := lipgloss.Width(navBaseStyle.Render(m.navView()))
+			m.mainViewport.Width = m.width - sidebarRenderedWidth - borderPaddingSize
+			m.mainViewport.Height = m.height - borderPaddingSize
+		}
+
 		return m, nil
 	}
 	switch m.screen {
@@ -646,31 +665,50 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				m.currentSection = section(m.navCursor)
 				m.focus = focusMain
+				m.mainViewport.GotoTop()
 				if m.currentSection == sectionBudget {
 					return m, loadBudgetCmd(m.budgetAPI)
 				}
 			}
 		case focusMain:
+			var cmd tea.Cmd
+			var cursorBefore, cursorAfter int
+
 			switch m.currentSection {
 			case sectionAccounts:
-				var cmd tea.Cmd
+				cursorBefore = m.accountsModel.cursor
 				m.accountsModel, cmd = m.accountsModel.Update(msg)
+				cursorAfter = m.accountsModel.cursor
+				if cursorBefore != cursorAfter {
+					m.autoScrollToCursor(cursorAfter, 3, 2)
+				}
 				return m, cmd
 			case sectionBudget:
-				var cmd tea.Cmd
 				m.budgetModel, cmd = m.budgetModel.Update(msg)
 				return m, cmd
 			case sectionCategories:
-				var cmd tea.Cmd
+				cursorBefore = m.categoriesModel.cursor
 				m.categoriesModel, cmd = m.categoriesModel.Update(msg)
+				cursorAfter = m.categoriesModel.cursor
+				if cursorBefore != cursorAfter {
+					m.autoScrollToCursor(cursorAfter, 3, 2)
+				}
 				return m, cmd
 			case sectionGroups:
-				var cmd tea.Cmd
+				cursorBefore = m.groupsModel.cursor
 				m.groupsModel, cmd = m.groupsModel.Update(msg)
+				cursorAfter = m.groupsModel.cursor
+				if cursorBefore != cursorAfter {
+					m.autoScrollToCursor(cursorAfter, 3, 2)
+				}
 				return m, cmd
 			case sectionTransactions:
-				var cmd tea.Cmd
+				cursorBefore = m.transactionsModel.cursor
 				m.transactionsModel, cmd = m.transactionsModel.Update(msg)
+				cursorAfter = m.transactionsModel.cursor
+				if cursorBefore != cursorAfter {
+					m.autoScrollToCursor(cursorAfter, 3, 2)
+				}
 				return m, cmd
 			default:
 				return m, nil
@@ -680,7 +718,18 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
 
+func (m *model) autoScrollToCursor(cursorIndex, linesPerItem, headerLines int) {
+	if !m.viewportReady {
+		return
+	}
+	cursorLine := headerLines + (cursorIndex * linesPerItem)
+	if cursorLine < m.mainViewport.YOffset {
+		m.mainViewport.SetYOffset(cursorLine)
+	} else if cursorLine >= m.mainViewport.YOffset+m.mainViewport.Height {
+		m.mainViewport.SetYOffset(cursorLine - m.mainViewport.Height + 1)
+	}
 }
 
 func (m model) View() string {
@@ -695,19 +744,37 @@ func (m model) View() string {
 }
 
 func (m model) mainView() string {
-	sidebar := m.navView()
+	contentHeight := m.height - 10
+	if contentHeight < 5 {
+		contentHeight = 5
+	}
 
-	content := m.mainContentView()
-	main := mainStyle.Render(content)
+	var sidebar string
+	if m.focus == focusNav {
+		sidebar = navFocusedStyle.
+			Height(contentHeight).
+			Render(m.navView())
+	} else {
+		sidebar = navBaseStyle.
+			Height(contentHeight).
+			Render(m.navView())
+	}
 
+	var main string
 	if m.width > 0 {
-		remainingWidth := m.width - lipgloss.Width(sidebar)
+		fixedHorizontalSpace := 2
+		remainingWidth := m.width - lipgloss.Width(sidebar) - fixedHorizontalSpace
 		if remainingWidth < 0 {
 			remainingWidth = 0
 		}
+		mainStyle := mainBaseStyle
+		if m.focus == focusMain {
+			mainStyle = mainFocusedStyle
+		}
 		main = mainStyle.
 			Width(remainingWidth).
-			Render(content)
+			Height(contentHeight).
+			Render(m.mainContentView())
 	}
 
 	row := lipgloss.JoinHorizontal(
@@ -716,34 +783,32 @@ func (m model) mainView() string {
 		main,
 	)
 
-	view := row
-	if m.width > 0 && m.height > 0 {
-		view = appStyle.
-			Width(m.width).
-			Height(m.height).
-			Render(row)
-	} else {
-		view = appStyle.Render(row)
-	}
-
-	return view
+	return row
 }
 
 func (m model) mainContentView() string {
+	if !m.viewportReady {
+		return "Loading..."
+	}
+
+	var content string
 	switch m.currentSection {
 	case sectionBudget:
-		return m.budgetModel.View()
+		content = m.budgetModel.View()
 	case sectionCategories:
-		return m.categoriesModel.View()
+		content = m.categoriesModel.View()
 	case sectionGroups:
-		return m.groupsModel.View()
+		content = m.groupsModel.View()
 	case sectionAccounts:
-		return m.accountsModel.View()
+		content = m.accountsModel.View()
 	case sectionTransactions:
-		return m.transactionsModel.View()
+		content = m.transactionsModel.View()
 	default:
-		return ""
+		content = ""
 	}
+
+	m.mainViewport.SetContent(content)
+	return m.mainViewport.View()
 }
 
 func (m model) navView() string {
@@ -775,5 +840,5 @@ func (m model) navView() string {
 		helpText,
 	)
 
-	return sidebarStyle.Render(content)
+	return content
 }
