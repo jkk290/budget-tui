@@ -9,7 +9,7 @@ Uses a Go REST API server, an API client, and a PostgreSQL database to explore f
 Next Implementation
 Plans to switch to a SQLite database and refactor the TUI to perform CRUD operations directly against the database—an exploration of a simplified, single-application architecture without a separate API layer.
 
-## Quickstart
+## Quick Start
 
 ## Usage
 ## API Documentation
