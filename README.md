@@ -1,5 +1,6 @@
 # Budget-TUI
 
+## Motivation
 A budgeting application built in Go, combining a REST API backend with a terminal-based user interface. This project serves as a hands-on way to practice designing API services, building API clients, and working with relational databases.
 
 Current Implementation
@@ -8,6 +9,9 @@ Uses a Go REST API server, an API client, and a PostgreSQL database to explore f
 Next Implementation
 Plans to switch to a SQLite database and refactor the TUI to perform CRUD operations directly against the database—an exploration of a simplified, single-application architecture without a separate API layer.
 
+## Quickstart
+
+## Usage
 ## API Documentation
 
 ### Authentication
@@ -436,3 +440,5 @@ All errors return JSON with an `error` field:
 - `403` - Insufficient permissions
 - `404` - Resource not found
 - `500` - Server error
+
+## Contributing
